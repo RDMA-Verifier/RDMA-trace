@@ -1,0 +1,1634 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RDMA_SC Trace Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a sidebar (program, relation switches, outcomes) beside a stage whose trace canvas has
+   one column per thread, grouped by node, and one row per moment of the observation order. */
+:root {
+  --bg: #edf0f4;
+  --surface: #fbfcfd;
+  --surface-2: #f2f4f8;
+  --ink: #17202b;
+  --muted: #5a6575;
+  --faint: #8b95a4;
+  --rule: #d7dde6;
+  --rule-strong: #bfc8d4;
+  --accent: #2550c4;
+  --accent-soft: #e2e9fb;
+  --accent-ink: #ffffff;
+  --ok: #16764a;
+  --ok-soft: #ddf1e6;
+  --warn: #8f5508;
+  --warn-soft: #faedd6;
+  --bad: #b3261e;
+  --bad-soft: #fbe3df;
+  --ev-cpu: #ffffff;
+  --ev-nic: #f2f5fb;
+  --ev-border: #c4ccd7;
+  --shadow-lift: 0 12px 28px rgba(16, 24, 40, 0.2);
+  --rel-po: #4b5567;
+  --rel-rf: #1d8a3c;
+  --rel-mo: #d07400;
+  --rel-rb: #a3214f;
+  --rel-pf: #8a6516;
+  --rel-nfo: #6a2bd6;
+  --rel-ippo: #0a85c0;
+  --rel-oppo: #bf259c;
+  --rel-ib: #2a5bd7;
+  --rel-ob: #0e756c;
+  --rel-sc: #d6311f;
+  --qp-0: #2a6fdb;
+  --qp-1: #d07400;
+  --qp-2: #0e8a7d;
+  --qp-3: #b4318f;
+  --qp-4: #6a2bd6;
+  --qp-5: #8a6516;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1117;
+    --surface: #141a22;
+    --surface-2: #1a212b;
+    --ink: #e3e8ef;
+    --muted: #9aa5b5;
+    --faint: #6d7787;
+    --rule: #263040;
+    --rule-strong: #364254;
+    --accent: #84a6ff;
+    --accent-soft: #1c2944;
+    --accent-ink: #0d1117;
+    --ok: #4cc58b;
+    --ok-soft: #12291e;
+    --warn: #e6a64b;
+    --warn-soft: #2d2313;
+    --bad: #ff7d72;
+    --bad-soft: #341a18;
+    --ev-cpu: #171d26;
+    --ev-nic: #19212d;
+    --ev-border: #343f50;
+    --shadow-lift: 0 12px 28px rgba(0, 0, 0, 0.6);
+    --rel-po: #a4afc1;
+    --rel-rf: #4fd27f;
+    --rel-mo: #f6a62a;
+    --rel-rb: #f26b9c;
+    --rel-pf: #d7b660;
+    --rel-nfo: #b49fff;
+    --rel-ippo: #4fc4f6;
+    --rel-oppo: #f17cd9;
+    --rel-ib: #80a8ff;
+    --rel-ob: #38d2be;
+    --rel-sc: #ff6d5f;
+    --qp-0: #6ea2ff;
+    --qp-1: #f6a62a;
+    --qp-2: #38c4b4;
+    --qp-3: #f17cd9;
+    --qp-4: #b49fff;
+    --qp-5: #d7b660;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --surface: #141a22;
+  --surface-2: #1a212b;
+  --ink: #e3e8ef;
+  --muted: #9aa5b5;
+  --faint: #6d7787;
+  --rule: #263040;
+  --rule-strong: #364254;
+  --accent: #84a6ff;
+  --accent-soft: #1c2944;
+  --accent-ink: #0d1117;
+  --ok: #4cc58b;
+  --ok-soft: #12291e;
+  --warn: #e6a64b;
+  --warn-soft: #2d2313;
+  --bad: #ff7d72;
+  --bad-soft: #341a18;
+  --ev-cpu: #171d26;
+  --ev-nic: #19212d;
+  --ev-border: #343f50;
+  --shadow-lift: 0 12px 28px rgba(0, 0, 0, 0.6);
+  --rel-po: #a4afc1;
+  --rel-rf: #4fd27f;
+  --rel-mo: #f6a62a;
+  --rel-rb: #f26b9c;
+  --rel-pf: #d7b660;
+  --rel-nfo: #b49fff;
+  --rel-ippo: #4fc4f6;
+  --rel-oppo: #f17cd9;
+  --rel-ib: #80a8ff;
+  --rel-ob: #38d2be;
+  --rel-sc: #ff6d5f;
+  --qp-0: #6ea2ff;
+  --qp-1: #f6a62a;
+  --qp-2: #38c4b4;
+  --qp-3: #f17cd9;
+  --qp-4: #b49fff;
+  --qp-5: #d7b660;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 var(--font-body);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+a {
+  color: var(--accent);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 12.5px;
+}
+
+.app {
+  max-width: 1720px;
+  margin: 0 auto;
+  padding-inline: 20px;
+  padding-block: 18px 32px;
+}
+
+/* ------------------------------------------------------------------ masthead */
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px 32px;
+  padding-block: 4px 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.title {
+  margin: 0;
+  font: 600 30px/1.1 var(--font-display);
+  letter-spacing: 0.005em;
+  text-wrap: balance;
+}
+
+.title sub {
+  font-size: 0.6em;
+  letter-spacing: 0.04em;
+}
+
+.pill sub {
+  font-size: 0.78em;
+  letter-spacing: 0.03em;
+}
+
+.lede {
+  margin: 8px 0 0;
+  max-width: 76ch;
+  color: var(--muted);
+}
+
+.refs {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ layout */
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.sidebar,
+.stage {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1240px) {
+  .details-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 980px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sidebar {
+    order: 2;
+  }
+}
+
+@media (max-width: 520px) {
+  .app {
+    padding-inline: 16px;
+  }
+  .title {
+    font-size: 25px;
+  }
+}
+
+.panel {
+  min-width: 0;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+}
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.panel h2 {
+  margin: 0;
+  font: 600 13px/1.2 var(--font-display);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ controls */
+
+.btn {
+  font: 500 13px/1.2 var(--font-body);
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+
+.btn.ghost:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.btn.small {
+  padding: 5px 10px;
+  font-size: 12.5px;
+}
+
+.btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.btn:focus-visible,
+select:focus-visible,
+.toggle input:focus-visible,
+.evref:focus-visible,
+.outcome:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+select {
+  max-width: 100%;
+  font: 13px var(--font-body);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+
+/* ------------------------------------------------------------------ program */
+
+.preset-note {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--accent-soft);
+  border-radius: 6px;
+}
+
+/* The editor: highlights behind a transparent textarea, statement numbers in a margin on top. The
+   hidden mirror copies the textarea's text metrics exactly so positions can be measured. */
+.code {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+
+.code:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+#source,
+.code-mirror {
+  padding: 10px 10px 10px 30px;
+  font: 13px/1.6 var(--font-mono);
+  letter-spacing: normal;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+#source {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  min-height: 250px;
+  margin: 0;
+  resize: vertical;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.code-mirror {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.code-marks,
+.code-gutter {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.code-marks {
+  z-index: 0;
+}
+
+.code-gutter {
+  right: auto;
+  width: 22px;
+  z-index: 2;
+  border-right: 1px solid var(--rule);
+}
+
+.code-layer {
+  position: relative;
+}
+
+.code .sid {
+  position: absolute;
+  right: 4px;
+  font: 500 10.5px var(--font-mono);
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.code .sid:hover,
+.code .sid.on {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.code .mark {
+  position: absolute;
+  background: var(--accent-soft);
+  border-radius: 3px;
+}
+
+.code-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.program-msg .error,
+.program-msg .info {
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+.program-msg .error {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.program-msg .info {
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+.stale {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+.syntax {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.syntax summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.syntax-list {
+  display: grid;
+  gap: 2px 0;
+  margin: 10px 0 0;
+}
+
+.syntax-list dt {
+  margin-top: 6px;
+}
+
+.syntax-list dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ relation switches */
+
+.toggles {
+  display: grid;
+  gap: 1px;
+}
+
+.toggle {
+  display: grid;
+  grid-template-columns: 16px 24px 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--surface-2);
+}
+
+.toggle input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.swatch {
+  height: 0;
+  border-top: 2px solid var(--c);
+}
+
+.swatch.dotted {
+  border-top-style: dotted;
+  border-top-width: 3px;
+}
+
+.swatch.dashed {
+  border-top-style: dashed;
+}
+
+.tname {
+  font: 600 12.5px var(--font-mono);
+}
+
+.tdesc {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ verdict */
+
+.verdict.frozen {
+  overflow-y: auto;
+}
+
+.verdict-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pill {
+  display: inline-block;
+  padding: 4px 11px;
+  font: 600 13px/1.3 var(--font-body);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.pill sub {
+  line-height: 0;
+  vertical-align: -0.2em;
+}
+
+.pill-ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.pill-warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.pill-bad {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.pill-neutral {
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+}
+
+.verdict p {
+  margin: 10px 0 0;
+  max-width: 88ch;
+}
+
+.verdict .footnote {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.steps {
+  display: grid;
+  gap: 2px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.steps li:hover {
+  background: var(--surface-2);
+}
+
+.stepnum {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font: 600 11px var(--font-mono);
+  color: var(--muted);
+  border: 1px solid var(--rule-strong);
+  border-radius: 50%;
+}
+
+.relchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px;
+  font: 600 12px/1.5 var(--font-mono);
+  color: var(--c);
+  border: 1px solid var(--c);
+  border-radius: 4px;
+}
+
+.issue-mark {
+  font: 500 10.5px var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.evref {
+  display: inline;
+  padding: 0;
+  font: 12.5px/1.5 var(--font-mono);
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-bottom: 1px dotted var(--faint);
+  cursor: pointer;
+  text-align: left;
+}
+
+.evref:hover {
+  border-bottom-color: var(--accent);
+}
+
+.evtag {
+  color: var(--muted);
+}
+
+.upward {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--warn-soft);
+  border-radius: 6px;
+}
+
+.upward p {
+  margin: 0;
+  flex: 1 1 320px;
+  font-size: 13px;
+}
+
+.final {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rule-strong);
+  font: 12.5px var(--font-mono);
+}
+
+.final-title {
+  font: 600 11.5px var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.final-node {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.final-label {
+  color: var(--muted);
+}
+
+.kv {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ trace */
+
+.hint {
+  margin: -2px 0 14px;
+  max-width: 96ch;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.trace-body {
+  display: grid;
+  grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+/* Observation order: a plain numbered list, set off from the graph by a hairline. */
+
+.order-pane {
+  min-width: 0;
+  padding-right: 24px;
+  border-right: 1px solid var(--rule);
+}
+
+@media (max-width: 720px) {
+  .trace-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .order-pane {
+    padding-right: 0;
+    padding-bottom: 16px;
+    border-right: none;
+    border-bottom: 1px solid var(--rule);
+  }
+}
+
+.order-title {
+  margin: 0;
+  font: 600 11.5px/1.2 var(--font-display);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.order-sub {
+  margin: 3px 0 10px;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.order-list {
+  position: relative;
+  border-top: 1px solid var(--rule);
+}
+
+.chip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 0 4px;
+  overflow: hidden;
+  font: 400 12px/1 var(--font-mono);
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1), background-color 0.12s;
+}
+
+.chip:hover,
+.chip.hovered {
+  background: var(--surface-2);
+}
+
+.chip .oi {
+  min-width: 18px;
+  text-align: right;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip .ot {
+  color: var(--muted);
+}
+
+.chip.in-cycle .ot {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.chip .ol {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip .grip {
+  color: var(--faint);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.chip:hover .grip,
+.chip:focus-visible .grip,
+.chip.dragging .grip {
+  opacity: 1;
+}
+
+.chip.dragging {
+  cursor: grabbing;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  box-shadow: var(--shadow-lift);
+  transition: background-color 0.12s;
+  z-index: 5;
+}
+
+/* Queue-pair marker on list entries and graph events: a small dot in the remote node's colour. */
+.qp-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--qp, transparent);
+}
+
+/* Graph */
+
+.trace-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+}
+
+.trace {
+  position: relative;
+}
+
+.trace .node-label {
+  position: absolute;
+  font: 600 11.5px var(--font-display);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.trace .node-rule {
+  position: absolute;
+  height: 0;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.trace .thread-label {
+  position: absolute;
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 6px;
+  font: 600 13px var(--font-mono);
+  color: var(--ink);
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  /* Above the edge layer, so lines from the initial values pass behind the thread name. */
+  z-index: 1;
+}
+
+.trace .thread-label.memory {
+  font: italic 12px var(--font-body);
+  color: var(--faint);
+}
+
+.trace .init {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  font: 12px var(--font-mono);
+  color: var(--muted);
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.trace .init.in-cycle,
+.trace .init.hovered {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.trace svg.edges {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.trace .ev {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 9px;
+  overflow: hidden;
+  font: 400 12.5px/1 var(--font-mono);
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--ev-cpu);
+  border: 1px solid var(--ev-border);
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 2;
+  transition: border-color 0.12s, background-color 0.12s;
+}
+
+.trace .ev.nic {
+  background: var(--ev-nic);
+}
+
+.trace .ev.buffered {
+  border-style: dashed;
+}
+
+.trace .ev .time {
+  min-width: 22px;
+  font-size: 11px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.trace .ev .tag {
+  min-width: 18px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.trace .ev .lbl {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trace .ev:hover,
+.trace .ev.hovered {
+  border-color: var(--accent);
+}
+
+.trace .ev.in-cycle {
+  border-color: var(--ink);
+}
+
+.trace .ev.selected,
+.chip.selected,
+.trace .ev:focus-visible,
+.chip:focus-visible {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.trace .ev.flag,
+.chip.flag {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.lk {
+  font-weight: 600;
+}
+
+.ln {
+  text-decoration: overline;
+}
+
+.ll sup {
+  font-size: 0.72em;
+  line-height: 0;
+}
+
+.ll.const {
+  color: var(--muted);
+}
+
+.lv.unknown {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+svg.edges .e {
+  fill: none;
+  stroke-width: 1.25;
+}
+
+svg.edges .e.dotted {
+  stroke-width: 1.8;
+  stroke-dasharray: 0.5 4;
+  stroke-linecap: round;
+}
+
+svg.edges .e.dashed {
+  stroke-dasharray: 5 4;
+}
+
+svg.edges.dim .e:not(.hl) {
+  opacity: 0.12;
+}
+
+svg.edges.dim .cyc:not(.hl),
+svg.edges.dim .badge:not(.hl) {
+  opacity: 0.3;
+}
+
+svg.edges .hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  pointer-events: stroke;
+}
+
+svg.edges .cyc {
+  fill: none;
+  stroke-width: 2.1;
+}
+
+svg.edges .cyc.issue {
+  stroke-dasharray: 6 3.5;
+}
+
+svg.edges .badge circle {
+  fill: var(--surface);
+  stroke-width: 1.25;
+}
+
+svg.edges .badge text {
+  font: 600 9.5px var(--font-mono);
+  fill: var(--ink);
+}
+
+.trace-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 14px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.trace-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lg-box {
+  display: inline-block;
+  width: 20px;
+  height: 12px;
+  background: var(--ev-cpu);
+  border: 1px solid var(--ev-border);
+  border-radius: 3px;
+}
+
+.lg-box.nic {
+  background: var(--ev-nic);
+}
+
+.lg-box.buffered {
+  border-style: dashed;
+}
+
+.lg-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 9px;
+  border-radius: 50%;
+  background: var(--qp-0);
+  box-shadow: 9px 0 0 var(--qp-1);
+}
+
+.lg-ov {
+  font-family: var(--font-mono);
+  text-decoration: overline;
+  color: var(--ink);
+}
+
+.lg-sup {
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ preserved program order */
+
+.matrices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+
+.matrix {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.matrix-title {
+  margin-bottom: 6px;
+  font: 600 13px var(--font-mono);
+}
+
+.matrix-scroll {
+  overflow-x: auto;
+}
+
+table.ppo {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font: 11.5px var(--font-mono);
+}
+
+table.ppo th {
+  padding: 2px 4px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+  text-align: center;
+}
+
+table.ppo th[scope="row"] {
+  text-align: right;
+}
+
+table.ppo .mt {
+  color: var(--ink);
+  margin-right: 4px;
+}
+
+table.ppo thead .mt {
+  display: block;
+  margin: 0;
+}
+
+table.ppo td {
+  width: 30px;
+  height: 24px;
+  text-align: center;
+  border-radius: 4px;
+  cursor: default;
+}
+
+table.ppo td.both,
+.lg.both {
+  color: var(--rel-oppo);
+  background: color-mix(in srgb, var(--rel-oppo) 16%, transparent);
+  font-weight: 700;
+}
+
+table.ppo td.ippo,
+.lg.ippo {
+  color: var(--rel-ippo);
+  background: color-mix(in srgb, var(--rel-ippo) 16%, transparent);
+  font-weight: 700;
+}
+
+table.ppo td.none,
+.lg.none {
+  color: var(--faint);
+  background: var(--surface-2);
+}
+
+table.ppo td:not(.na):hover {
+  outline: 2px solid var(--accent);
+}
+
+.legend-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.lg {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 18px;
+  font: 700 11.5px var(--font-mono);
+  border-radius: 4px;
+}
+
+.lg + .lg,
+.legend-line .lg:not(:first-child) {
+  margin-left: 10px;
+}
+
+/* ------------------------------------------------------------------ inspector */
+
+.inspector .big {
+  font: 500 16px var(--font-mono);
+}
+
+.inspector dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.inspector dt {
+  color: var(--muted);
+}
+
+.inspector dd {
+  margin: 0;
+  min-width: 0;
+}
+
+table.rels {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+table.rels th,
+table.rels td {
+  padding: 4px 6px;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--rule);
+}
+
+table.rels thead th {
+  border-top: none;
+  font: 600 11px var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+table.rels td .evref {
+  margin-right: 8px;
+}
+
+/* ------------------------------------------------------------------ outcomes */
+
+.outcomes {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.outcome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+  width: 100%;
+  padding: 6px 8px;
+  font: 12.5px var(--font-mono);
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.outcome:hover {
+  border-color: var(--accent);
+}
+
+.outcome.current {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.okey {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ometa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ometa .pill {
+  padding: 3px 8px;
+  font-size: 11.5px;
+}
+
+.ocount {
+  font: 11.5px var(--font-body);
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip {
+    transition: none;
+  }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="masthead">
+    <div>
+      <h1 class="title">RDMA<sub>SC</sub> Trace Explorer</h1>
+      <p class="lede">Write a small RDMA program, then drag its events up or down to choose the order in which they are observed. Reads-from, modification order and NIC flush order follow from that order. The page then checks the resulting execution against the RDMA<sub>SC</sub> consistency rules.</p>
+    </div>
+    <p class="refs">Model: Abdulla, Atig, Rajanbabu &amp; Spengler, <a href="https://arxiv.org/abs/2605.10631" target="_blank" rel="noopener">On the Verification Problem of RDMA Programs</a>, building on Ambal et&nbsp;al., <a href="https://doi.org/10.1145/3689781" target="_blank" rel="noopener">Semantics of Remote Direct Memory Access</a> (OOPSLA 2024).</p>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <section class="panel" aria-labelledby="program-h">
+        <div class="panel-head">
+          <h2 id="program-h">Program</h2>
+          <select id="preset" aria-label="Example programs"></select>
+        </div>
+        <p id="preset-note" class="preset-note" hidden></p>
+        <div id="code" class="code">
+          <textarea id="source" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="RDMA program" rows="15"></textarea>
+        </div>
+        <p class="code-note">The margin numbers each thread's statements. An event tag such as <code>2a</code> is the first event of statement 2; a put or get also has a second event, <code>2b</code>.</p>
+        <div id="program-msg" class="program-msg" aria-live="polite"></div>
+        <details class="syntax">
+          <summary>Syntax</summary>
+          <dl class="syntax-list">
+            <dt><code>node 1 { x = 0; a = 0 }</code></dt><dd>Locations of node 1 and their initial values. Undeclared locations start at 0 on the node that first uses them.</dd>
+            <dt><code>thread T1 @ 1 { … }</code></dt><dd>A thread running on node 1.</dd>
+            <dt><code>x := e</code></dt><dd>Local assignment. <code>e</code> uses numbers, local locations and <code>+ - *</code>.</dd>
+            <dt><code>x := y^2</code></dt><dd>Get: the NIC reads <code>y</code> on node 2 and writes local <code>x</code>.</dd>
+            <dt><code>y^2 := x</code> · <code>y^2 := 1</code></dt><dd>Put: the NIC reads local <code>x</code> (or a constant) and writes <code>y</code> on node 2.</dd>
+            <dt><code>poll(2)</code></dt><dd>Wait until the oldest unpolled remote operation towards node 2 completes.</dd>
+            <dt><code>rfence(2)</code></dt><dd>Later remote operations towards node 2 wait for the earlier ones.</dd>
+            <dt><code>assume(x = 1)</code></dt><dd>A local read that must see 1. <code>assume(x != 1)</code> must not.</dd>
+            <dt><code>a := CAS(x, 0, 1)</code></dt><dd>Compare-and-swap on local <code>x</code>; <code>a</code> gets the old value.</dd>
+          </dl>
+          <p>Separate commands with <code>;</code> or new lines. Comments start with <code>//</code>. Paper notation <code>z²</code> works too. Choice and loops are not supported yet.</p>
+        </details>
+      </section>
+
+      <section class="panel" aria-labelledby="relations-h">
+        <div class="panel-head"><h2 id="relations-h">Relations</h2></div>
+        <div id="toggles" class="toggles"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="outcomes-h">
+        <div class="panel-head">
+          <h2 id="outcomes-h">Outcomes</h2>
+          <button type="button" id="enumerate" class="btn small">Find all</button>
+        </div>
+        <div id="outcomes"></div>
+      </section>
+    </aside>
+
+    <div class="stage">
+      <section id="verdict" class="panel verdict" aria-live="polite"></section>
+
+      <section class="panel trace-panel" aria-labelledby="trace-h">
+        <div class="panel-head">
+          <h2 id="trace-h">Trace</h2>
+          <div class="toolbar">
+            <button type="button" id="undo" class="btn ghost" title="Undo (Ctrl or ⌘ + Z)">Undo</button>
+            <button type="button" id="redo" class="btn ghost" title="Redo (Shift + Ctrl or ⌘ + Z)">Redo</button>
+            <button type="button" id="reset" class="btn ghost" title="Go back to the starting order: the threads interleaved, each in program order">Reset order</button>
+            <button type="button" id="tidy" class="btn" title="Move events into a valid observation order with the same execution">Tidy order</button>
+          </div>
+        </div>
+        <p class="hint">Each column is one thread in program order, and e1, e2, … show when each event is observed. To reschedule, drag events in the observation order on the left, or focus one and press ↑ or ↓.</p>
+        <div class="trace-body">
+          <div class="order-pane">
+            <h3 class="order-title">Observation order</h3>
+            <p class="order-sub">First observed at the top.</p>
+            <div id="order" class="order-list"></div>
+          </div>
+          <div class="trace-scroll">
+            <div id="trace" class="trace"></div>
+            <p id="trace-empty" class="muted" hidden>Fix the program to see its trace.</p>
+          </div>
+        </div>
+        <p class="trace-legend">
+          <span><span class="lg-box"></span>CPU event</span>
+          <span><span class="lg-box nic"></span>NIC event</span>
+          <span><span class="lg-box nic buffered"></span>buffered NIC write, observed after it is issued</span>
+          <span><span class="lg-dot"></span>dot colour = queue pair (remote node)</span>
+          <span><span class="lg-ov">2</span> remote node <span class="lg-sup">z<sup>2</sup></span> location on node 2</span>
+        </p>
+      </section>
+
+      <div class="details-grid">
+        <section class="panel" aria-labelledby="ppo-h">
+          <div class="panel-head"><h2 id="ppo-h">Preserved program order</h2></div>
+          <div id="matrices"></div>
+        </section>
+        <section class="panel inspector" aria-labelledby="inspector-h">
+          <div class="panel-head"><h2 id="inspector-h">Event</h2></div>
+          <div id="inspector"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+"use strict";(()=>{var Rt=Object.defineProperty;var St=(n,e,t)=>e in n?Rt(n,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):n[e]=t;var S=(n,e,t)=>St(n,typeof e!="symbol"?e+"":e,t);var N=class n{constructor(e){S(this,"n");S(this,"bits");this.n=e,this.bits=new Uint8Array(e*e)}static union(e,...t){return new n(e).addAll(...t)}static fromPairs(e,t){let r=new n(e);for(let[s,o]of t)r.add(s,o);return r}has(e,t){return this.bits[e*this.n+t]===1}add(e,t){this.bits[e*this.n+t]=1}delete(e,t){this.bits[e*this.n+t]=0}addAll(...e){for(let t of e){let r=t.bits;for(let s=0;s<r.length;s++)r[s]&&(this.bits[s]=1)}return this}copy(){let e=new n(this.n);return e.bits.set(this.bits),e}pairs(){let e=[],{n:t,bits:r}=this;for(let s=0;s<t;s++){let o=s*t;for(let i=0;i<t;i++)r[o+i]&&e.push([s,i])}return e}successors(e){let t=[];for(let r=0;r<this.n;r++)this.bits[e*this.n+r]&&t.push(r);return t}predecessors(e){let t=[];for(let r=0;r<this.n;r++)this.bits[r*this.n+e]&&t.push(r);return t}closure(){let{n:e}=this,t=this.copy(),r=t.bits;for(let s=0;s<e;s++){let o=s*e;for(let i=0;i<e;i++){let a=i*e;if(r[a+s])for(let l=0;l<e;l++)r[o+l]&&(r[a+l]=1)}}return t}isIrreflexive(){for(let e=0;e<this.n;e++)if(this.bits[e*this.n+e])return!1;return!0}reduction(){let{n:e,bits:t}=this,r=new n(e);for(let s=0;s<e;s++)for(let o=0;o<e;o++){if(!t[s*e+o])continue;let i=!1;for(let a=0;a<e&&!i;a++)a!==s&&a!==o&&t[s*e+a]&&t[a*e+o]&&(i=!0);i||r.add(s,o)}return r}};var _e=new Set(["nlR","nrW","nrR","nlW","nF"]),q=new Set(["lR","CAS","nlR","nrR"]),V=new Set(["lW","nlW","nrW"]),H=class extends Error{constructor(t,r,s){super(t);S(this,"line");S(this,"col");this.name="CompileError",this.line=r,this.col=s}};var ke={CPU:{CPU:"Y",nlR:"Y",nrW:"Y",nrR:"Y",nlW:"Y",nF:"Y"},nlR:{CPU:"N",nlR:"S",nrW:"S",nrR:"S",nlW:"S",nF:"S"},nrW:{CPU:"N",nlR:"N",nrW:"S",nrR:"S",nlW:"S",nF:"SI"},nrR:{CPU:"N",nlR:"N",nrW:"N",nrR:"N",nlW:"S",nF:"S"},nlW:{CPU:"N",nlR:"N",nrW:"N",nrR:"N",nlW:"S",nF:"SI"},nF:{CPU:"N",nlR:"S",nrW:"S",nrR:"S",nlW:"S",nF:"S"}};function ne(n){return _e.has(n)?n:"CPU"}function ae(n,e){return n.thread>=0&&n.thread===e.thread&&n.rnode>=0&&n.rnode===e.rnode}function re(n,e){let t=ke[ne(n.kind)][ne(e.kind)];return t==="Y"?"both":t==="N"||!ae(n,e)?"none":t==="S"?"both":"ippo"}var Et=(n,e)=>n==="nlR"&&e==="nlW"||n==="nlW"&&e==="nlR"||n==="nrR"&&e==="nrW"||n==="nrW"&&e==="nrR";function Ve(n){let e=n.events.length,t=new N(e),r=new N(e),s=new N(e),o=new N(e),i=[];for(let c of n.threads){let u=c.events;for(let x=0;x<u.length;x++){x+1<u.length&&r.add(u[x],u[x+1]);for(let y=x+1;y<u.length;y++){let v=n.events[u[x]],R=n.events[u[y]];t.add(v.id,R.id);let M=re(v,R);M!=="none"&&s.add(v.id,R.id),M==="both"&&o.add(v.id,R.id),ae(v,R)&&Et(v.kind,R.kind)&&i.push([v.id,R.id])}}}let a=new N(e),l=new N(e);for(let[c,u]of n.pf)a.add(c,u),n.events[c].kind==="nlW"&&l.add(c,u);let f=new Uint8Array(e);for(let c of n.events)f[c.id]=c.kind==="nlW"||c.kind==="nrW"?0:1;let m=[],g=Math.max(0,...n.threads.map(c=>c.events.length));for(let c=0;c<g;c++)for(let u of n.threads)c<u.events.length&&m.push(u.events[c]);return{n:e,po:t,poImm:r,ippo:s,oppo:o,pf:a,pfObs:l,inst:f,nfoPairs:i,defaultTau:m}}function Tt(n,e){let t=[];for(let s=0;s<n.nInit;s++)t.push(s);t.push(...e);let r=new Int32Array(n.events.length).fill(-1);return t.forEach((s,o)=>{r[s]=o}),{order:t,pos:r}}var ie=class{constructor(e,t){S(this,"p");S(this,"rfOf");S(this,"readVal");S(this,"writeVal");S(this,"casOk");S(this,"busy");this.p=e,this.rfOf=t;let r=e.events.length;this.readVal=new Array(r),this.writeVal=new Array(r),this.casOk=new Array(r),this.busy=new Uint8Array(r)}read(e){let t=this.readVal[e];if(t!==void 0)return t;if(this.busy[e]&1)return null;this.busy[e]|=1;let r=this.write(this.rfOf(e));return this.busy[e]&=-2,this.readVal[e]=r,r}write(e){let t=this.p.events[e];if(t.thread<0)return this.p.locations[t.loc].init;let r=this.writeVal[e];if(r!==void 0)return r;if(this.busy[e]&2)return null;this.busy[e]|=2;let s=this.p.threads[t.thread].instrs[t.instr].sem,o=null;return s.k==="assign"?o=this.eval(s.expr,s.reads):s.k==="get"||s.k==="put"?o=this.read(s.read):s.k==="cas"&&(o=e===s.cas?this.eval(s.desired,s.desReads):this.read(s.cas)),this.busy[e]&=-3,this.writeVal[e]=o,o}cas(e){let t=this.casOk[e];if(t!==void 0)return t;if(this.busy[e]&4)return null;this.busy[e]|=4;let r=this.p.events[e],s=this.p.threads[r.thread].instrs[r.instr].sem,o=null;if(s.k==="cas"){let i=this.read(e),a=this.eval(s.expected,s.expReads);o=i===null||a===null?null:i===a}return this.busy[e]&=-5,this.casOk[e]=o,o}eval(e,t){if(e.k==="num")return e.v;if(e.k==="loc"){let o=t.get(e.loc);return o===void 0?null:this.read(o)}let r=this.eval(e.l,t),s=this.eval(e.r,t);return r===null||s===null?null:e.op==="+"?r+s:e.op==="-"?r-s:r*s}};function Ye(n,e){let t=n.events.length;for(let a of n.events)a.thread<0||(q.has(a.kind)&&e.read(a.id),a.kind==="CAS"&&e.cas(a.id),(V.has(a.kind)||a.kind==="CAS")&&e.write(a.id));let r=new Array(t).fill(null),s=new Array(t).fill(null),o=new Array(t).fill(null),i=[];for(let a of n.events){let l=a.id;if(a.thread<0){s[l]=n.locations[a.loc].init;continue}q.has(a.kind)&&(r[l]=e.readVal[l]??null),V.has(a.kind)&&(s[l]=e.writeVal[l]??null),a.kind==="CAS"&&(o[l]=e.casOk[l]??null,s[l]=o[l]?e.writeVal[l]??null:null),(q.has(a.kind)&&r[l]===null||V.has(a.kind)&&s[l]===null||a.kind==="CAS"&&(o[l]===null||o[l]===!0&&s[l]===null))&&i.push(l)}return{readVal:r,writeVal:s,casOk:o,unknown:i}}function Be(n,e,t){let r=Tt(n,t),{order:s,pos:o}=r,i=n.events,a=new Int32Array(e.n).fill(-2),l=null,f=y=>{let v=i[y].kind;return V.has(v)||v==="CAS"&&l.cas(y)===!0},m=y=>{if(a[y]!==-2)return a[y];let v=i[y].loc,R=v;for(let M=o[y]-1;M>=n.nInit;M--){let O=s[M];if(i[O].loc===v&&f(O)){R=O;break}}return a[y]=R,R};l=new ie(n,m);let g=Ye(n,l),c=new Int32Array(e.n).fill(-1);for(let y of i)y.thread>=0&&q.has(y.kind)&&(c[y.id]=m(y.id));let u=n.locations.map(y=>[y.id]);for(let y of s){let v=i[y];v.thread>=0&&(V.has(v.kind)||v.kind==="CAS"&&g.casOk[y]===!0)&&u[v.loc].push(y)}let x=new N(e.n);for(let[y,v]of e.nfoPairs)o[y]<o[v]?x.add(y,v):x.add(v,y);return{witness:{rf:c,mo:u,nfo:x,...g},ord:r}}function qe(n,e,t,r){let s=Int32Array.from(e),o=Ye(n,new ie(n,i=>s[i]));return{rf:s,mo:t.map(i=>i.slice()),nfo:r.copy(),...o}}function le(n,e,t,r){let s=e.n,o=n.events,i=new Uint8Array(s),a=new Uint8Array(s);for(let w of o){if(w.thread<0){a[w.id]=1;continue}q.has(w.kind)&&(i[w.id]=1),(V.has(w.kind)||w.kind==="CAS"&&t.casOk[w.id]===!0)&&(a[w.id]=1)}let l=new N(s);for(let w=0;w<s;w++)i[w]&&t.rf[w]>=0&&l.add(t.rf[w],w);let f=new N(s),m=new Int32Array(s).fill(-1);for(let w of t.mo)w.forEach((T,W)=>{m[T]=W;for(let K=W+1;K<w.length;K++)f.add(T,w[K])});let g=new N(s);for(let w=0;w<s;w++){if(!i[w]||t.rf[w]<0)continue;let T=t.mo[o[w].loc];for(let W=m[t.rf[w]]+1;W<T.length;W++)T[W]!==w&&g.add(w,T[W])}let c=t.nfo,u=N.union(s,e.ippo,l,e.pf,c),x=u.closure(),y=new N(s);for(let w=0;w<s;w++)if(e.inst[w])for(let T=0;T<s;T++)x.has(w,T)&&y.add(w,T);let v=N.union(s,e.oppo,l,e.pfObs,c,g,f),R=N.union(s,v,y).closure(),M=N.union(s,e.po,l,g,f),O=M.closure(),D=x.isIrreflexive(),d=R.isIrreflexive(),k=O.isIrreflexive(),$=(w,T)=>e.oppo.has(w,T)?"oppo":e.pfObs.has(w,T)?"pf":l.has(w,T)?"rf":c.has(w,T)?"nfo":f.has(w,T)?"mo":"rb",h=(w,T)=>e.ippo.has(w,T)?"ippo":e.pf.has(w,T)?"pf":l.has(w,T)?"rf":"nfo",p=(w,T)=>e.po.has(w,T)?"po":l.has(w,T)?"rf":f.has(w,T)?"mo":"rb",E=d&&D?null:Ct(s,e.inst,v,u,$,h),C=k?null:Lt(s,M,p),P=[];if(r){let{pos:w}=r;for(let[T,W]of v.pairs())w[W]<w[T]&&P.push({from:T,to:W,rel:$(T,W),layer:"ob"});for(let[T,W]of y.pairs())!v.has(T,W)&&w[W]<w[T]&&P.push({from:T,to:W,rel:"ib",layer:"ib"})}let A=[];for(let w of n.threads)for(let T of w.instrs){let W=T.sem;if(W.k!=="assume")continue;let K=t.readVal[W.read];K!==null&&(W.op==="="?K!==W.value:K===W.value)&&A.push(W.read)}let z=t.mo.map(w=>t.writeVal[w[w.length-1]]),G=d&&D&&t.unknown.length===0&&A.length===0;return{isRead:i,isWrite:a,po:e.po,rf:l,mo:f,rb:g,pf:e.pf,nfo:c,ippo:e.ippo,oppo:e.oppo,ib:x,instIb:y,ob:R,sc:O,ibAcyclic:D,obAcyclic:d,scAcyclic:k,obCycle:E,scCycle:C,upward:P,assumeFailures:A,unknown:t.unknown,allowed:G,final:z}}function Ge(n,e){let t=null,r=new Int32Array(n),s=new Int32Array(n),o=new Int32Array(n);for(let i=0;i<n;i++){if(e[i].length===0)continue;r.fill(-1),r[i]=0,s[i]=-1;let a=0,l=0;o[l++]=i;let f=-1;e:for(;a<l;){let m=o[a++];if(t&&r[m]+1>=t.length-1)break;for(let g of e[m]){if(g===i){f=m;break e}r[g]<0&&(r[g]=r[m]+1,s[g]=m,o[l++]=g)}}if(f>=0){let m=[];for(let g=f;g!==-1;g=s[g])m.push(g);m.reverse(),m.push(i),(!t||m.length<t.length)&&(t=m)}}return t}function Lt(n,e,t){let r=Array.from({length:n},()=>[]);for(let[i,a]of e.pairs())r[i].push(a);let s=Ge(n,r);if(!s)return null;let o=[];for(let i=0;i+1<s.length;i++)o.push({from:s[i],to:s[i+1],rel:t(s[i],s[i+1]),layer:"sc"});return o}function Ct(n,e,t,r,s,o){let i=Array.from({length:2*n},()=>[]);for(let[g,c]of t.pairs())i[g].push(c),i[n+g].push(c);for(let[g,c]of r.pairs())i[n+g].push(n+c),e[g]&&i[g].push(n+c);let a=Ge(2*n,i);if(!a)return null;let l=[];for(let g=0;g+1<a.length;g++){let c=a[g]%n,u=a[g+1]%n,x=a[g+1]>=n;l.push({from:c,to:u,rel:x?o(c,u):s(c,u),layer:x?"ib":"ob"})}let f=l.length,m=l.findIndex((g,c)=>g.layer==="ob"&&l[(c+f-1)%f].layer==="ib");return m<0&&(m=0),[...l.slice(m),...l.slice(0,m)]}function ce(n,e,t){let r=[];for(let a of n.threads)r.push(...a.events);let s=new Map(r.map(a=>[a,0]));for(let a of r)for(let l of r)a!==l&&e.has(a,l)&&s.set(l,s.get(l)+1);let o=r.filter(a=>s.get(a)===0),i=[];for(;o.length>0;){let a=0;for(let f=1;f<o.length;f++)t(o[f])<t(o[a])&&(a=f);let l=o.splice(a,1)[0];i.push(l);for(let f of r){if(f===l||!e.has(l,f))continue;let m=s.get(f)-1;s.set(f,m),m===0&&o.push(f)}}return i.length===r.length?i:null}function $e(n,e,t){let r=n.filter(s=>s!==e);return r.splice(Math.max(0,Math.min(t,r.length)),0,e),r}var Re=class{constructor(e){S(this,"n");S(this,"cnt");S(this,"seen");S(this,"stamp",0);this.n=e,this.cnt=new Uint16Array(e*e),this.seen=new Uint32Array(e)}reaches(e,t){this.stamp++;let r=[e];for(this.seen[e]=this.stamp;r.length>0;){let s=r.pop();if(s===t)return!0;let o=s*this.n;for(let i=0;i<this.n;i++)this.cnt[o+i]>0&&this.seen[i]!==this.stamp&&(this.seen[i]=this.stamp,r.push(i))}return!1}tryAdd(e,t){if(e===t)return!1;let r=e*this.n+t;return this.cnt[r]===0&&this.reaches(t,e)?!1:(this.cnt[r]++,!0)}remove(e,t){this.cnt[e*this.n+t]--}};function*Xe(n){if(n.length<=1){yield n.slice();return}for(let e=0;e<n.length;e++){let t=[...n.slice(0,e),...n.slice(e+1)];for(let r of Xe(t))yield[n[e],...r]}}function Se(n,e){return n.locations.filter(t=>!t.hidden).map(t=>`${t.name}=${e[t.id]??"?"}`).join(" ")}function Je(n,e,t=2e5){let r=n.events,s=e.n,o=new Re(s);for(let[h,p]of e.oppo.pairs())o.tryAdd(h,p);for(let[h,p]of e.pfObs.pairs())o.tryAdd(h,p);let i=r.filter(h=>h.thread>=0&&q.has(h.kind)).map(h=>h.id),a=r.filter(h=>h.kind==="CAS").map(h=>h.id),l=new Int32Array(s);e.defaultTau.forEach((h,p)=>{l[h]=p});let f=new Map,m=new Int32Array(s).fill(-1),g=n.locations.map(h=>[h.id]),c=new N(s),u=[],x=0,y=!1,v=h=>{let p=[];for(let[E,C]of h){if(!o.tryAdd(E,C)){for(let[P,A]of p)o.remove(P,A);return null}p.push([E,C])}return p},R=h=>{for(let[p,E]of h)o.remove(p,E)},M=()=>{if(++x>t){y=!0;return}let h=qe(n,m,g,c);if(h.unknown.length>0)return;for(let C of a)if(h.casOk[C]!==f.get(C))return;let p=le(n,e,h,null);if(!p.allowed)return;let E=ce(n,p.ob,C=>l[C]);E&&u.push({witness:h,analysis:p,tau:E,sc:p.scAcyclic})},O=h=>{if(y)return;if(h===e.nfoPairs.length){M();return}let[p,E]=e.nfoPairs[h];for(let[C,P]of[[p,E],[E,p]]){let A=v([[C,P]]);if(A&&(c.add(C,P),O(h+1),c.delete(C,P),R(A),y))return}},D=h=>{if(y)return;if(h===i.length){O(0);return}let p=i[h],E=g[r[p].loc];for(let C=0;C<E.length;C++){let P=E[C];if(P===p)continue;let A=[[P,p]],z=C+1;z<E.length&&E[z]===p&&z++,z<E.length&&A.push([p,E[z]]);let G=v(A);if(G&&(m[p]=P,D(h+1),m[p]=-1,R(G),y))return}},d=h=>{if(y)return;if(h===n.locations.length){D(0);return}let p=r.filter(E=>E.thread>=0&&E.loc===h&&(V.has(E.kind)||E.kind==="CAS"&&f.get(E.id))).map(E=>E.id);for(let E of Xe(p)){let C=[h,...E],P=[];for(let z=0;z+1<C.length;z++)P.push([C[z],C[z+1]]);let A=v(P);if(A&&(g[h]=C,d(h+1),g[h]=[h],R(A),y))return}};for(let h=0;h<1<<a.length&&!y;h++)a.forEach((p,E)=>f.set(p,(h&1<<E)!==0)),d(0);let k=new Map;for(let h of u){let p=Se(n,h.analysis.final),E=k.get(p);E||k.set(p,E={key:p,final:h.analysis.final,executions:[],scCount:0,weakCount:0}),E.executions.push(h),h.sc?E.scCount++:E.weakCount++}let $=[...k.values()].sort((h,p)=>+(p.scCount>0)-+(h.scCount>0)||h.key.localeCompare(p.key));return{executions:u,outcomes:$,truncated:y,candidates:x}}var U="Ambal et al. (OOPSLA 2024)",Pt="Abdulla et al. (arXiv:2605.10631)",X=[{id:"p2-nonrobust",group:Pt,title:"\xA75.1 \xB7 Non-robust put",note:"RDMA-consistent but not SC: the put on line 2 reads x = 2 from the write on line 3, so z = 2. This order is the paper's normal form T\u2033. Click Reset order to see the SC execution with z = 1.",source:`// Abdulla et al., \xA75.1: a program that is not robust.
+node 1 { x = 1; y = 0 }
+node 2 { z = 0; w = 1 }
+
+thread T1 @ 1 {
+  y := w^2;    // get: read w on node 2 into y
+  z^2 := x;    // put: send x to z on node 2
+  x := 2
+}
+`,schedule:["T1.1a","T1.3","T1.1b","T1.2a","T1.2b"]},{id:"f2a",group:`${U}, Fig. 2`,title:"2a \xB7 Write, then put",note:"Paper: z = 0 forbidden, z = 1 allowed. The put reads x only after the earlier CPU write.",source:`node 1 { x = 0 }
+node 2 { z = 0 }
+
+thread T1 @ 1 {
+  x := 1;
+  z^2 := x
+}
+`},{id:"f2b",group:`${U}, Fig. 2`,title:"2b \xB7 Put, then write",note:"Paper: z = 0 and z = 1 both allowed. The put runs in parallel and may read x after the later write.",source:`node 1 { x = 0 }
+node 2 { z = 0 }
+
+thread T1 @ 1 {
+  z^2 := x;
+  x := 1
+}
+`},{id:"f2c",group:`${U}, Fig. 2`,title:"2c \xB7 Put, poll, write",note:"Paper: z = 0 allowed, z = 1 forbidden. The poll waits for the put to complete.",source:`node 1 { x = 0 }
+node 2 { z = 0 }
+
+thread T1 @ 1 {
+  z^2 := x;
+  poll(2);
+  x := 1
+}
+`},{id:"f2d",group:`${U}, Fig. 2`,title:"2d \xB7 Two puts, one poll",note:"Paper: z = 0 and z = 1 both allowed. The poll only waits for the first put.",source:`node 1 { x = 0 }
+node 2 { z = 0 }
+
+thread T1 @ 1 {
+  z^2 := x;
+  z^2 := x;
+  poll(2);
+  x := 1
+}
+`},{id:"f2e",group:`${U}, Fig. 2`,title:"2e \xB7 Gets from two nodes",note:"Paper: x = 1 and x = 2 both allowed. Gets towards different nodes are independent.",source:`node 1 { x = 0 }
+node 2 { z = 1 }
+node 3 { y = 2 }
+
+thread T1 @ 1 {
+  x := z^2;
+  x := y^3
+}
+`},{id:"f2f",group:`${U}, Fig. 2`,title:"2f \xB7 Put and get, two nodes",note:"Paper: y = 0 and y = 1 both allowed.",source:`node 1 { x = 0 }
+node 2 { z = 1 }
+node 3 { y = 2 }
+
+thread T1 @ 1 {
+  y^3 := x;
+  x := z^2
+}
+`},{id:"f2g",group:`${U}, Fig. 2`,title:"2g \xB7 Put, then get",note:"Paper: z = 0 forbidden, z = 1 allowed. A put's local read stays before a later get's local write on the same queue pair.",source:`node 1 { x = 1 }
+node 2 { y = 0; z = 0 }
+
+thread T1 @ 1 {
+  z^2 := x;
+  x := y^2
+}
+`},{id:"f2h",group:`${U}, Fig. 2`,title:"2h \xB7 Get, then put",note:"Paper: z = 0 and z = 1 both allowed. The get's local write may land after the put's local read.",source:`node 1 { x = 1 }
+node 2 { y = 0; z = 0 }
+
+thread T1 @ 1 {
+  x := y^2;
+  z^2 := x
+}
+`},{id:"f2i",group:`${U}, Fig. 2`,title:"2i \xB7 Get, rfence, put",note:"Paper: z = 0 allowed, z = 1 forbidden. The remote fence keeps the two operations in order.",source:`node 1 { x = 1 }
+node 2 { y = 0; z = 0 }
+
+thread T1 @ 1 {
+  x := y^2;
+  rfence(2);
+  z^2 := x
+}
+`},{id:"f3a",group:`${U}, Fig. 3`,title:"3a \xB7 Store buffering with puts",note:"Paper: a = b = 0 allowed.",source:`node 1 { y = 0 }
+node 2 { x = 0 }
+
+thread T1 @ 1 {
+  x^2 := 1;
+  a := y
+}
+
+thread T2 @ 2 {
+  y^1 := 1;
+  b := x
+}
+`},{id:"f3b",group:`${U}, Fig. 3`,title:"3b \xB7 Load buffering with gets",note:"Paper: a = b = 1 allowed.",source:`node 1 { x = 0 }
+node 2 { y = 0 }
+
+thread T1 @ 1 {
+  a := y^2;
+  x := 1
+}
+
+thread T2 @ 2 {
+  b := x^1;
+  y := 1
+}
+`},{id:"f3c",group:`${U}, Fig. 3`,title:"3c \xB7 Load buffering with polls",note:"Paper: a = b = 1 forbidden. Polling a get waits until its value has landed.",source:`node 1 { x = 0 }
+node 2 { y = 0 }
+
+thread T1 @ 1 {
+  a := y^2;
+  poll(2);
+  x := 1
+}
+
+thread T2 @ 2 {
+  b := x^1;
+  poll(1);
+  y := 1
+}
+`},{id:"f3d",group:`${U}, Fig. 3`,title:"3d \xB7 Store buffering with polled puts",note:"Paper: a = b = 0 allowed by the model but not seen on hardware. Polling a put only waits for the acknowledgement, not for the remote write.",source:`node 1 { y = 0 }
+node 2 { x = 0 }
+
+thread T1 @ 1 {
+  x^2 := 1;
+  poll(2);
+  a := y
+}
+
+thread T2 @ 2 {
+  y^1 := 1;
+  poll(1);
+  b := x
+}
+`},{id:"f3e",group:`${U}, Fig. 3`,title:"3e \xB7 Puts flushed by gets",note:"Paper: a = b = 0 forbidden. A later get on the same queue pair flushes the pending put (the PCIe guarantee).",source:`node 1 { y = 0; w = 0 }
+node 2 { x = 0; z = 0 }
+
+thread T1 @ 1 {
+  x^2 := 1;
+  c := z^2;
+  poll(2);
+  poll(2);
+  a := y
+}
+
+thread T2 @ 2 {
+  y^1 := 1;
+  d := w^1;
+  poll(1);
+  poll(1);
+  b := x
+}
+`},{id:"f1a",group:`${U}, Fig. 1`,title:"1a \xB7 Store buffering, CPU only",note:"Under x86-TSO a = b = 0 is allowed. RDMA_SC assumes sequentially consistent CPUs, so here it is forbidden.",source:`node 1 { x = 0; y = 0 }
+
+thread T1 @ 1 {
+  x := 1;
+  a := y
+}
+
+thread T2 @ 1 {
+  y := 1;
+  b := x
+}
+`}],Ee=X[0];var At=[":=","!=","==","{","}","(",")",";",",","^","@","=","+","-","*","\u2260"],Te={"\u2070":"0","\xB9":"1","\xB2":"2","\xB3":"3","\u2074":"4","\u2075":"5","\u2076":"6","\u2077":"7","\u2078":"8","\u2079":"9"},It=n=>/[A-Za-z_]/.test(n),Mt=n=>/[A-Za-z0-9_]/.test(n),Qe=n=>n>="0"&&n<="9";function Wt(n){let e=[],t=0,r=1,s=0;for(;t<n.length;){let o=n[t];if(o===`
+`){t++,r++,s=t;continue}if(o===" "||o==="	"||o==="\r"){t++;continue}if(o==="/"&&n[t+1]==="/"||o==="#"){for(;t<n.length&&n[t]!==`
+`;)t++;continue}let i=t-s+1;if(It(o)){let l=t+1;for(;l<n.length&&Mt(n[l]);)l++;if(e.push({kind:"id",text:n.slice(t,l),line:r,col:i,start:t,end:l}),t=l,l<n.length&&Te[n[l]]!==void 0){let f=l,m="";for(;f<n.length&&Te[n[f]]!==void 0;)m+=Te[n[f++]];let g=l-s+1;e.push({kind:"sym",text:"^",line:r,col:g,start:l,end:l}),e.push({kind:"num",text:m,line:r,col:g,start:l,end:f}),t=f}continue}if(Qe(o)){let l=t+1;for(;l<n.length&&Qe(n[l]);)l++;e.push({kind:"num",text:n.slice(t,l),line:r,col:i,start:t,end:l}),t=l;continue}let a=At.find(l=>n.startsWith(l,t));if(a){e.push({kind:"sym",text:a,line:r,col:i,start:t,end:t+a.length}),t+=a.length;continue}throw new H(`Unexpected character "${o}".`,r,i)}return e.push({kind:"eof",text:"",line:r,col:t-s+1,start:t,end:t}),e}var Ot=new Set(["node","thread","skip","mfence","assume","poll","rfence","CAS","cas","on"]),Le=class{constructor(e){S(this,"src");S(this,"toks");S(this,"i",0);this.src=e,this.toks=Wt(e)}parseProgram(){let e=[],t=[];for(;this.peek().kind!=="eof";)this.isWord("node")?e.push(this.parseNode()):this.isWord("thread")?t.push(this.parseThread()):this.fail(this.peek(),`Expected "node" or "thread", found ${this.describe(this.peek())}.`);return{nodes:e,threads:t}}peek(e=0){return this.toks[Math.min(this.i+e,this.toks.length-1)]}advance(){let e=this.peek();return e.kind!=="eof"&&this.i++,e}isSym(e,t=0){let r=this.peek(t);return r.kind==="sym"&&r.text===e}isWord(e){let t=this.peek();return t.kind==="id"&&t.text===e}fail(e,t){throw new H(t,e.line,e.col)}describe(e){return e.kind==="eof"?"the end of the program":`"${e.text}"`}expectSym(e,t){return this.isSym(e)?this.advance():this.fail(this.peek(),`Expected "${e}" ${t}, found ${this.describe(this.peek())}.`)}expectInt(e){let t=1;this.isSym("-")&&(this.advance(),t=-1);let r=this.peek();return r.kind!=="num"&&this.fail(r,`Expected a number ${e}, found ${this.describe(r)}.`),this.advance(),t*Number(r.text)}expectNode(e){let t=this.peek(),r=this.expectInt(e);return r<1&&this.fail(t,"Node numbers start at 1."),r}expectName(e){let t=this.peek();return t.kind!=="id"&&this.fail(t,`Expected a name ${e}, found ${this.describe(t)}.`),Ot.has(t.text)&&this.fail(t,`"${t.text}" is a keyword, so it can't be used as a name.`),this.advance()}parseNode(){let e=this.advance(),t=this.expectNode('after "node"');this.expectSym("{",`to open the locations of node ${t}`);let r=[];for(;!this.isSym("}");){this.peek().kind==="eof"&&this.fail(this.peek(),`Missing "}" to close node ${t}.`);let s=this.expectName("for a location"),o=0;(this.isSym("=")||this.isSym(":="))&&(this.advance(),o=this.expectInt(`as the initial value of ${s.text}`)),r.push({name:s.text,value:o,line:s.line,col:s.col}),(this.isSym(";")||this.isSym(","))&&this.advance()}return this.advance(),{node:t,vars:r,line:e.line,col:e.col}}parseThread(){let e=this.advance(),t=this.expectName("for the thread");this.isSym("@")?this.advance():this.isWord("on")?(this.advance(),this.isWord("node")&&this.advance()):this.fail(this.peek(),`Expected "@" and a node number after thread ${t.text}, as in: thread ${t.text} @ 1 { ... }`);let r=this.expectNode(`for the node of thread ${t.text}`);this.expectSym("{",`to open thread ${t.text}`);let s=[];for(;!this.isSym("}");)for(this.peek().kind==="eof"&&this.fail(this.peek(),`Missing "}" to close thread ${t.text}.`),s.push(this.parseStmt());this.isSym(";");)this.advance();return this.advance(),{name:t.text,node:r,body:s,line:e.line,col:e.col}}parseStmt(){let e=this.peek(),t;if(this.isWord("skip"))this.advance(),t={k:"skip"};else if(this.isWord("mfence"))this.advance(),t={k:"mfence"};else if(this.isWord("assume")){this.advance(),this.expectSym("(","after assume");let s=this.parseLocRef(),o;this.isSym("=")||this.isSym("==")?o="=":this.isSym("!=")||this.isSym("\u2260")?o="!=":this.fail(this.peek(),`Expected "=" or "!=" in assume(${s.name} ...), found ${this.describe(this.peek())}.`),this.advance();let i=this.expectInt(`to compare ${s.name} with`);this.expectSym(")","to close assume(...)"),t={k:"assume",ref:s,op:o,value:i}}else if(this.isWord("poll")||this.isWord("rfence")){let s=this.advance();this.expectSym("(",`after ${s.text}`);let o=this.peek(),i=this.expectNode(`(the remote node) in ${s.text}(...)`);this.expectSym(")",`to close ${s.text}(...)`),t={k:s.text==="poll"?"poll":"rfence",node:i,line:o.line,col:o.col}}else if(this.peek().kind==="id"){let s=this.parseLocRef();if(this.isSym("=")&&this.fail(this.peek(),`Use ":=" to assign to ${s.name}.`),this.expectSym(":=",`after ${s.name}`),(this.isWord("CAS")||this.isWord("cas"))&&this.isSym("(",1)){this.advance(),this.advance();let o=this.parseLocRef();this.expectSym(",","after the location in CAS(location, expected, new)");let i=this.parseExpr();this.expectSym(",","after the expected value in CAS(location, expected, new)");let a=this.parseExpr();this.expectSym(")","to close CAS(...)"),t={k:"cas",target:s,ref:o,expected:i,desired:a}}else t={k:"assign",target:s,expr:this.parseExpr()}}else this.isSym("+")||this.isSym("*")||this.isSym("(")?this.fail(e,"Choice (C1 + C2) and loops (C*) are not supported yet. Write each thread as a straight sequence of commands."):this.fail(e,`Expected a command, found ${this.describe(e)}.`);let r=this.toks[this.i-1];return{stmt:t,line:e.line,col:e.col,text:this.src.slice(e.start,r.end)}}parseLocRef(){let e=this.expectName("for a location"),t=null;return this.isSym("^")&&(this.advance(),t=this.expectNode(`after "${e.text}^" (the node that holds ${e.text})`)),{name:e.text,node:t,line:e.line,col:e.col}}parseExpr(){let e=this.parseTerm();for(;this.isSym("+")||this.isSym("-");)e={k:"bin",op:this.advance().text==="+"?"+":"-",l:e,r:this.parseTerm()};return e}parseTerm(){let e=this.parseFactor();for(;this.isSym("*");)this.advance(),e={k:"bin",op:"*",l:e,r:this.parseFactor()};return e}parseFactor(){let e=this.peek();if(e.kind==="num")return this.advance(),{k:"num",v:Number(e.text)};if(this.isSym("-")){this.advance();let t=this.parseFactor();return t.k==="num"?{k:"num",v:-t.v}:{k:"bin",op:"-",l:{k:"num",v:0},r:t}}if(this.isSym("(")){this.advance();let t=this.parseExpr();return this.expectSym(")","to close the parenthesis"),t}return e.kind==="id"?{k:"loc",ref:this.parseLocRef()}:this.fail(e,`Expected a number or a location, found ${this.describe(e)}.`)}};function de(n){return new Le(n).parseProgram()}var Ht=(n,e)=>`#${n}:${e}`;function Ze(n){let e=de(n),t=new Map,r=new Set,s=0;for(let d of e.nodes){r.add(d.node);for(let k of d.vars){let $=t.get(k.name);if($){let h=$.node===d.node?`Location ${k.name} is declared twice on node ${d.node}.`:`Location ${k.name} is declared on node ${$.node} and on node ${d.node}. Each location lives on exactly one node.`;throw new H(h,k.line,k.col)}t.set(k.name,{key:k.name,name:k.name,node:d.node,init:k.value,declared:!0,hidden:!1,order:s++})}}if(e.threads.length===0)throw new H("Add at least one thread, for example: thread T1 @ 1 { x := 1 }",1,1);let o=new Set;for(let d of e.threads){if(o.has(d.name))throw new H(`There are two threads called ${d.name}.`,d.line,d.col);o.add(d.name),r.add(d.node)}let i=(d,k,$)=>{if(!$&&d.node!==null)throw d.node===k?new H(`${d.name}^${d.node} is on this thread's own node. Write ${d.name} for a local access.`,d.line,d.col):new H(`${d.name}^${d.node} is on another node. Only a get (a := ${d.name}^${d.node}) or a put (${d.name}^${d.node} := a) can reach it.`,d.line,d.col);let h=d.node??k;if($&&h===k)throw new H(`${d.name}^${h} is on this thread's own node, so it is not a remote access.`,d.line,d.col);let p=t.get(d.name);if(p&&p.node!==h)throw d.node===null?new H(`${d.name} lives on node ${p.node}, but this thread runs on node ${k}. Reach it with a get (a := ${d.name}^${p.node}) or a put (${d.name}^${p.node} := a), or rename it. Undeclared locations belong to the node where they are first used.`,d.line,d.col):new H(`${d.name} lives on node ${p.node}, not on node ${d.node}.`,d.line,d.col);return p||t.set(d.name,{key:d.name,name:d.name,node:h,init:0,declared:!1,hidden:!1,order:s++}),r.add(h),d.name},a=(d,k,$=[])=>{if(d.k==="loc"){if(d.ref.node!==null&&d.ref.node!==k)throw new H(`Remote locations can't appear inside an expression. Fetch ${d.ref.name} first with a get, e.g. tmp := ${d.ref.name}^${d.ref.node}.`,d.ref.line,d.ref.col);let h=i(d.ref,k,!1);$.includes(h)||$.push(h)}else d.k==="bin"&&(a(d.l,k,$),a(d.r,k,$));return $},l=(d,k)=>{let $=d.stmt,h=k.node;switch($.k){case"skip":return{k:"none",mfence:!1};case"mfence":return{k:"none",mfence:!0};case"poll":case"rfence":if($.node===h)throw new H(`${$.k}(${$.node}) must name a remote node, but thread ${k.name} runs on node ${h}.`,$.line,$.col);return r.add($.node),{k:$.k,rnode:$.node};case"assume":return{k:"assume",loc:i($.ref,h,!1),op:$.op,value:$.value};case"cas":{let p=i($.ref,h,!1),E=a($.expected,h),C=a($.desired,h);return{k:"cas",target:i($.target,h,!1),loc:p,expected:$.expected,desired:$.desired,expReads:E,desReads:C}}case"assign":{let p=$.expr;if($.target.node!==null&&$.target.node!==h){let C=$.target.node,P=$.target.name;if(p.k==="num"){let A=Ht(h,p.v);return t.has(A)||t.set(A,{key:A,name:`#${p.v}`,node:h,init:p.v,declared:!1,hidden:!0,order:s++}),{k:"put",target:i($.target,h,!0),rnode:C,src:A,constant:p.v}}if(p.k==="loc"&&p.ref.node===null){let A=i(p.ref,h,!1);return{k:"put",target:i($.target,h,!0),rnode:C,src:A,constant:null}}throw p.k==="loc"?new H(`A put copies a local location to a remote one, so write ${P}^${C} := a with a local a.`,p.ref.line,p.ref.col):new H(`A put sends one local location or a constant: ${P}^${C} := a or ${P}^${C} := 1.`,d.line,d.col)}if(p.k==="loc"&&p.ref.node!==null&&p.ref.node!==h){let C=i(p.ref,h,!0);return{k:"get",target:i($.target,h,!1),src:C,rnode:p.ref.node}}let E=a(p,h);return{k:"assign",target:i($.target,h,!1),expr:p,reads:E}}}},f=e.threads.map(d=>d.body.map(k=>l(k,d))),m=[...t.values()].sort((d,k)=>d.node-k.node||Number(d.hidden)-Number(k.hidden)||Number(k.declared)-Number(d.declared)||d.order-k.order),g=m.map((d,k)=>({id:k,name:d.name,node:d.node,init:d.init,hidden:d.hidden})),c=new Map(m.map((d,k)=>[d.key,k])),u=d=>c.get(d),x=g.map(d=>({id:d.id,thread:-1,iota:0,instr:-1,part:0,tag:"",kind:"lW",loc:d.id,rnode:-1})),y=x.length,v=d=>d.k==="num"?d:d.k==="loc"?{k:"loc",loc:u(d.ref.name)}:{k:"bin",op:d.op,l:v(d.l),r:v(d.r)},R=[],M=!1;e.threads.forEach((d,k)=>{let $={index:k,name:d.name,node:d.node,events:[],instrs:[]},h=0;f[k].forEach((p,E)=>{let C=d.body[E],P={index:E,thread:k,text:C.text,line:C.line,col:C.col,sem:{k:"none"},events:[]},A=(w,T,W)=>{let K=x.length;return x.push({id:K,thread:k,iota:++h,instr:E,part:P.events.length,tag:"",kind:w,loc:T,rnode:W}),P.events.push(K),$.events.push(K),K},z=w=>new Map(w.map(T=>[u(T),A("lR",u(T),-1)]));switch(p.k){case"assign":{let w=z(p.reads);P.sem={k:"assign",reads:w,expr:v(p.expr),write:A("lW",u(p.target),-1)};break}case"get":{let w=A("nrR",u(p.src),p.rnode);P.sem={k:"get",read:w,write:A("nlW",u(p.target),p.rnode)};break}case"put":{let w=A("nlR",u(p.src),p.rnode);P.sem={k:"put",read:w,write:A("nrW",u(p.target),p.rnode),constant:p.constant};break}case"assume":P.sem={k:"assume",read:A("lR",u(p.loc),-1),op:p.op,value:p.value};break;case"cas":{let w=z(p.expReads),T=z(p.desReads),W=A("CAS",u(p.loc),-1),K=A("lW",u(p.target),-1);P.sem={k:"cas",expReads:w,desReads:T,cas:W,write:K,expected:v(p.expected),desired:v(p.desired)};break}case"poll":P.sem={k:"poll",event:A("poll",-1,p.rnode)};break;case"rfence":P.sem={k:"rfence",event:A("nF",-1,p.rnode)};break;case"none":p.mfence&&(M=!0);break}let G=String(E+1);P.events.forEach((w,T)=>{x[w].tag=P.events.length>1?G+"abcdefghijklmnopqrstuvwxyz"[T]:G}),$.instrs.push(P)}),R.push($)});let O=[];for(let d of R){let k=new Map;for(let $ of d.events){let h=x[$];if(h.rnode<0)continue;let p=k.get(h.rnode);if(p||k.set(h.rnode,p={writes:[],polls:0}),h.kind==="nlW"||h.kind==="nrW")p.writes.push($);else if(h.kind==="poll"){if(p.polls>=p.writes.length){let E=d.instrs[h.instr];throw new H(`poll(${h.rnode}) in thread ${d.name} has no earlier remote operation towards node ${h.rnode} left to wait for, so it would block forever.`,E.line,E.col)}O.push([p.writes[p.polls++],$])}}}let D=[];return M&&D.push("mfence has no effect under RDMA_SC: the CPUs are sequentially consistent, so it produces no event."),{source:n,nodes:[...r].sort((d,k)=>d-k),locations:g,threads:R,events:x,nInit:y,pf:O,notes:D}}function Ce(n,e,t){let r=n.events[t],s=r.loc>=0?n.locations[r.loc]:null,o=e?e.readVal[t]:null,i=e?e.writeVal[t]:null,a=u=>({t:"kind",s:u}),l=u=>({t:"text",s:u}),f=u=>({t:"loc",name:s.name,node:u?s.node:null,hidden:s.hidden}),m=u=>({t:"val",v:u}),g={t:"node",n:r.rnode},c=(u,...x)=>{let y=[a(u),l("(")];return x.forEach((v,R)=>{R>0&&y.push(l(", ")),y.push(v)}),y.push(l(")")),y};if(r.thread<0)return c("lW",f(!1),m(s.init));switch(r.kind){case"lR":return c("lR",f(!1),m(o));case"lW":return c("lW",f(!1),m(i));case"CAS":{let u=e?e.casOk[t]:null;return u===!1?c("lR",f(!1),m(o)):c("CAS",f(!1),m(o),m(u?i:null))}case"poll":return c("poll",g);case"nlR":return c("nlR",f(!1),m(o),g);case"nrW":return c("nrW",f(!0),m(i));case"nrR":return c("nrR",f(!0),m(o));case"nlW":return c("nlW",f(!1),m(i),g);case"nF":return c("nF",g)}}var Nt="\u2070\xB9\xB2\xB3\u2074\u2075\u2076\u2077\u2078\u2079";function Dt(n){return n.map(e=>{switch(e.t){case"kind":case"text":return e.s;case"loc":return e.node===null?e.name:e.name+[...String(e.node)].map(t=>Nt[Number(t)]).join("");case"val":return e.v===null?"?":String(e.v);case"node":return[...String(e.n)].map(t=>t+"\u0305").join("")}}).join("")}function ee(n,e,t){return Dt(Ce(n,e,t))}function se(n,e){let t=n.events[e];return t.thread<0?`init ${n.locations[t.loc].name}`:`${n.threads[t.thread].name}\xB7${t.tag}`}function et(n,e){if(e.thread<0)return"Initial value of the location.";let t=e.rnode;switch(e.kind){case"lR":return"CPU read of local memory.";case"lW":return"CPU write to local memory.";case"CAS":{let r=n?n.casOk[e.id]:null;return r===!1?"Compare-and-swap that failed, so it only reads.":r===!0?"Compare-and-swap that succeeded: it reads the expected value and writes the new one atomically.":"Compare-and-swap whose outcome depends on itself in this order."}case"poll":return`CPU poll: waits until the oldest unpolled remote operation towards node ${t} has completed.`;case"nlR":return`Local read of a put towards node ${t}: the NIC reads the value it will send.`;case"nrW":return`Remote write of a put: the value lands in node ${t}'s memory. It is buffered, so it is not instantaneous.`;case"nrR":return`Remote read of a get: the NIC reads node ${t}'s memory.`;case"nlW":return`Local write of a get from node ${t}: the fetched value lands in local memory. It is buffered, so it is not instantaneous.`;case"nF":return`Remote fence towards node ${t}: later remote operations towards node ${t} wait until earlier ones have been issued.`}}var Ft={"nrW>nlR":"The later put reads its local value before this put's remote write is issued.","nrR>nlR":"A get's remote read can happen late, after a later put has read its local value.","nrR>nrW":"A get's remote read can happen late, after a later put's write was issued.","nrR>nrR":"Gets may fetch their remote values in either order.","nlW>nlR":"A get's local write lands late, after later operations on the queue pair.","nlW>nrW":"A get's local write lands late, after later operations on the queue pair.","nlW>nrR":"A get's local write lands late, after later operations on the queue pair."};function tt(n,e,t){let r=n.events[e],s=n.events[t],o=ne(r.kind),i=ne(s.kind),a=ke[o][i];return a==="Y"?"A CPU event stays before everything that follows it in program order.":i==="CPU"?"The NIC runs in parallel with the CPU, so a later CPU event may happen first.":a==="N"?Ft[`${o}>${i}`]??"The NIC may reorder these even on the same queue pair.":ae(r,s)?re(r,s)==="both"?`Same queue pair (towards node ${r.rnode}), so the order is kept.`:"Same queue pair: the remote fence waits for the earlier write to be issued, but not for it to land in memory, so the order is kept in ippo only.":`Different queue pairs (towards node ${r.rnode} and node ${s.rnode}) are independent.`}var zt={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"},I=n=>n.replace(/[&<>"']/g,e=>zt[e]);function Ut(n){return n.map(e=>{switch(e.t){case"kind":return`<span class="lk">${I(e.s)}</span>`;case"text":return I(e.s);case"loc":return`<span class="ll${e.hidden?" const":""}">${I(e.name)}${e.node===null?"":`<sup>${e.node}</sup>`}</span>`;case"val":return e.v===null?'<span class="lv unknown">?</span>':`<span class="lv">${e.v}</span>`;case"node":return`<span class="ln">${e.n}</span>`}}).join("")}var J=(n,e,t)=>Ut(Ce(n,e,t));function j(n,e){let t=document.createElement("div");return t.className=n,e!==void 0&&(t.textContent=e),t}var ue=["rf","mo","rb","pf","nfo","ippo","oppo","ib","ob","sc","cycle"],nt={rf:!0,mo:!1,rb:!1,pf:!0,nfo:!0,ippo:!1,oppo:!1,ib:!1,ob:!1,sc:!1,cycle:!0},te={po:{desc:"program order",style:"solid",side:"L"},rf:{desc:"reads-from: the write each read gets its value from",style:"solid",side:"R"},mo:{desc:"modification order of the writes to a location",style:"solid",side:"R"},rb:{desc:"reads-before: a read comes before the writes that overwrite what it read",style:"solid",side:"R"},pf:{desc:"polls-from: the NIC write each poll waits for",style:"solid",side:"R"},nfo:{desc:"NIC flush order between the NIC reads and writes of one queue pair",style:"solid",side:"R"},ippo:{desc:"program order kept when issuing",style:"dotted",side:"L"},oppo:{desc:"program order kept when observing",style:"dotted",side:"L"},ib:{desc:"issued-before = (ippo \u222A rf \u222A pf \u222A nfo)\u207A",style:"dashed",side:"R"},ob:{desc:"observed-before; it must be acyclic",style:"dashed",side:"R"},sc:{desc:"(po \u222A rf \u222A rb \u222A mo)\u207A; acyclic only for SC executions",style:"dashed",side:"R"},cycle:{desc:"the cycle that forbids the execution, or the SC cycle of a weak one",style:"solid",side:"R"}};function rt(n,e,t,r,s){let o=[],i=u=>u>=n.nInit||!n.locations[u].hidden,a=u=>u>=n.nInit,l=(u,x,y=i)=>{for(let[v,R]of x)y(v)&&y(R)&&o.push({from:v,to:R,rel:u})},f=u=>u.closure().reduction().pairs(),m=[];for(let u of r.mo)for(let x=0;x+1<u.length;x++)m.push([u[x],u[x+1]]);let g=[];for(let u=0;u<e.n;u++){if(!t.isRead[u]||r.rf[u]<0)continue;let x=r.mo[n.events[u].loc],y=x.slice(x.indexOf(r.rf[u])+1).find(v=>v!==u);y!==void 0&&g.push([u,y])}if(s.ippo&&l("ippo",f(e.ippo)),s.oppo&&l("oppo",f(e.oppo)),s.rf&&l("rf",t.rf.pairs()),s.mo&&l("mo",m),s.rb&&l("rb",g),s.pf&&l("pf",e.pf.pairs()),s.nfo&&l("nfo",t.nfo.pairs()),s.ib&&l("ib",t.ibAcyclic?t.ib.reduction().pairs():[...f(e.ippo),...t.rf.pairs(),...e.pf.pairs(),...t.nfo.pairs()],a),s.ob){let u=t.obAcyclic&&t.ibAcyclic;l("ob",u?t.ob.reduction().pairs():[...f(e.oppo),...t.rf.pairs(),...m,...g,...t.nfo.pairs()],a)}s.sc&&l("sc",t.scAcyclic?t.sc.reduction().pairs():[...e.poImm.pairs(),...t.rf.pairs(),...m,...g],a);let c=[];return s.cycle&&(t.obCycle?c=t.obCycle.map((u,x)=>({from:u.from,to:u.to,rel:u.rel,step:x+1,issue:u.layer==="ib"})):t.unknown.length===0&&t.scCycle&&(c=t.scCycle.map((u,x)=>({from:u.from,to:u.to,rel:u.rel,step:x+1})))),{edges:o,cycle:c}}var pe=(n,e)=>`${n}:${e}`,me=class{constructor(e,t,r){S(this,"ta");S(this,"handlers");S(this,"mirror");S(this,"marks");S(this,"gutter");S(this,"stmts",[]);S(this,"program",null);S(this,"active",new Set);this.ta=t,this.handlers=r;let s=j("code-marks");this.marks=j("code-layer"),s.append(this.marks);let o=j("code-gutter");this.gutter=j("code-layer"),o.append(this.gutter),this.mirror=j("code-mirror");for(let i of[s,o,this.mirror])i.setAttribute("aria-hidden","true");e.prepend(s),e.append(o,this.mirror),t.addEventListener("input",()=>this.refresh()),t.addEventListener("scroll",()=>this.syncScroll()),new ResizeObserver(()=>this.layout()).observe(t),document.fonts?.ready.then(()=>this.layout()),this.gutter.addEventListener("pointerover",i=>{let a=i.target.closest("[data-stmts]");a&&this.handlers.hover(this.eventsOf(a.dataset.stmts))}),this.gutter.addEventListener("pointerout",i=>{i.relatedTarget?.closest?.("[data-stmts]")||this.handlers.hover([])}),this.gutter.addEventListener("click",i=>{let a=i.target.closest("[data-stmts]"),l=a?this.eventsOf(a.dataset.stmts)[0]:void 0;l!==void 0&&this.handlers.select(l)}),this.gutter.addEventListener("wheel",i=>{this.ta.scrollTop+=i.deltaY},{passive:!0})}setProgram(e){this.program=e}setActive(e){let t=new Set,r=this.current();if(r)for(let s of e){let o=r.events[s];o&&o.thread>=0&&t.add(pe(o.thread,o.instr))}[...t].join()!==[...this.active].join()&&(this.active=t,this.layout())}refresh(){let e=this.ta.value,t=[0];for(let r=0;r<e.length;r++)e[r]===`
+`&&t.push(r+1);try{this.stmts=de(e).threads.flatMap((r,s)=>r.body.map((o,i)=>{let a=t[o.line-1]+o.col-1;return{thread:s,threadName:r.name,index:i,start:a,end:a+o.text.length}}))}catch{this.stmts=[]}this.layout()}current(){return this.program&&this.program.source===this.ta.value?this.program:null}eventsOf(e){let t=this.current();return t?e.split(",").flatMap(r=>{let[s,o]=r.split(":").map(Number);return t.threads[s]?.instrs[o]?.events??[]}):[]}describe(e){let t=this.current()?.threads[e.thread]?.instrs[e.index],r=`${e.threadName}, statement ${e.index+1}`;if(!t)return r;if(t.events.length===0)return`${r}: no event`;let s=this.program;return`${r}: ${t.events.map(o=>`${s.events[o].tag} ${s.events[o].kind}`).join(", ")}`}layout(){let e=this.ta.value;this.mirror.style.width=`${this.ta.clientWidth}px`,this.mirror.textContent=`${e}\u200B`;let t=this.mirror.firstChild,r=this.mirror.getBoundingClientRect(),s=document.createRange(),o=(f,m)=>(s.setStart(t,Math.min(f,e.length)),s.setEnd(t,Math.min(m,e.length)),[...s.getClientRects()]),i=new Map;for(let f of this.stmts){let m=o(f.start,f.start+1)[0];if(!m)continue;let g=Math.round(m.top-r.top),c=i.get(g)??{stmts:[],height:m.height};c.stmts.push(f),i.set(g,c)}let a="";for(let[f,{stmts:m,height:g}]of i){let c=m.some(y=>this.active.has(pe(y.thread,y.index))),u=m.map(y=>pe(y.thread,y.index)).join(","),x=m.map(y=>this.describe(y)).join(`
+`);a+=`<span class="sid${c?" on":""}" data-stmts="${u}" title="${I(x)}" style="top:${f}px;height:${g}px;line-height:${g}px">${m.map(y=>y.index+1).join(",")}</span>`}this.gutter.innerHTML=a;let l="";for(let f of this.stmts)if(this.active.has(pe(f.thread,f.index)))for(let m of o(f.start,f.end))l+=`<span class="mark" style="left:${m.left-r.left-2}px;top:${m.top-r.top}px;width:${m.width+4}px;height:${m.height}px"></span>`;this.marks.innerHTML=l,this.syncScroll()}syncScroll(){let e=`translateY(${-this.ta.scrollTop}px)`;this.gutter.style.transform=e,this.marks.style.transform=e}};var Kt=32,Q=32,he=class{constructor(e,t){S(this,"root");S(this,"handlers");S(this,"p",null);S(this,"chips",new Map);S(this,"labelCache",new Map);S(this,"frame",null);S(this,"drag",null);S(this,"count",0);this.root=e,this.handlers=t}setProgram(e){this.p=e,this.drag=null,this.frame=null,this.root.textContent="",this.chips.clear(),this.labelCache.clear(),this.count=e.events.length-e.nInit,this.root.style.height=`${this.count*Q}px`;for(let t of e.threads)for(let r of t.events)this.root.append(this.makeChip(r))}render(e){let t=this.p;t&&(this.frame=e,e.tau.forEach((r,s)=>{let o=this.chips.get(r);if(!o)return;this.drag?.moved&&this.drag.id===r||(o.style.transform=`translateY(${s*Q}px)`);let i=`<span class="oi">${s+1}</span><span class="qp-dot"></span><span class="ot">${I(se(t,r))}</span><span class="ol">${J(t,e.witness,r)}</span><span class="grip" aria-hidden="true">\u283F</span>`;this.labelCache.get(r)!==i&&(o.innerHTML=i,this.labelCache.set(r,i)),o.classList.toggle("selected",e.selected===r),o.classList.toggle("hovered",e.hover.includes(r)),o.classList.toggle("flag",e.flagged.has(r)),o.classList.toggle("in-cycle",e.inCycle.has(r)),o.setAttribute("aria-label",`Step ${s+1}: ${se(t,r)} ${ee(t,e.witness,r)}. Use the up and down arrow keys to move it.`)}))}focusEvent(e){let t=this.chips.get(e);t&&(t.focus({preventScroll:!0}),t.scrollIntoView({block:"nearest"}))}makeChip(e){let t=this.p,r=t.events[e],s=r.kind!=="lR"&&r.kind!=="lW"&&r.kind!=="CAS"&&r.kind!=="poll",o=j(`chip ${s?"nic":"cpu"}${r.kind==="nlW"||r.kind==="nrW"?" buffered":""}`);return o.tabIndex=0,o.setAttribute("role","button"),o.style.height=`${Kt}px`,r.rnode>=0&&o.style.setProperty("--qp",`var(--qp-${(r.rnode-1)%6})`),o.title=`${t.threads[r.thread].name} \xB7 ${t.threads[r.thread].instrs[r.instr].text}`,o.addEventListener("pointerdown",i=>this.onPointerDown(i,e)),o.addEventListener("pointermove",i=>this.onPointerMove(i)),o.addEventListener("pointerup",i=>this.onPointerUp(i,!0)),o.addEventListener("pointercancel",i=>this.onPointerUp(i,!1)),o.addEventListener("pointerenter",()=>{this.drag||this.handlers.hover([e])}),o.addEventListener("pointerleave",()=>{this.drag||this.handlers.hover([])}),o.addEventListener("keydown",i=>{i.key==="ArrowUp"||i.key==="ArrowDown"?(i.preventDefault(),this.handlers.nudge(e,i.key==="ArrowUp"?-1:1)):i.key==="Enter"||i.key===" "?(i.preventDefault(),this.handlers.select(e)):i.key==="Escape"&&this.drag?.moved&&this.finishDrag(!1)}),this.chips.set(e,o),o}onPointerDown(e,t){if(e.button!==0||!this.frame)return;this.chips.get(t).setPointerCapture(e.pointerId);let s=this.frame.tau.indexOf(t),o=s*Q,i=this.root.getBoundingClientRect().top;this.drag={id:t,pointerId:e.pointerId,startY:e.clientY,grab:e.clientY-i-o,moved:!1,index:s,y:o}}onPointerMove(e){let t=this.drag;if(!t||e.pointerId!==t.pointerId)return;if(!t.moved){if(Math.abs(e.clientY-t.startY)<4)return;t.moved=!0,this.chips.get(t.id).classList.add("dragging"),this.handlers.dragStart(t.id)}let r=this.root.getBoundingClientRect().top,s=(this.count-1)*Q;t.y=Math.max(-Q*.4,Math.min(s+Q*.4,e.clientY-r-t.grab)),this.chips.get(t.id).style.transform=`translateY(${t.y}px)`;let o=t.y/Q,i=Math.abs(o-t.index)>.6?Math.max(0,Math.min(this.count-1,Math.round(o))):t.index;i!==t.index&&(t.index=i,this.handlers.dragTo(t.id,i)),e.clientY<56?window.scrollBy(0,-14):e.clientY>window.innerHeight-56&&window.scrollBy(0,14)}onPointerUp(e,t){let r=this.drag;if(!(!r||e.pointerId!==r.pointerId)){if(!r.moved){this.drag=null,t&&this.handlers.select(r.id);return}this.finishDrag(t)}}finishDrag(e){let t=this.drag;if(!t)return;this.drag=null;let r=this.chips.get(t.id);r?.classList.remove("dragging"),r?.hasPointerCapture(t.pointerId)&&r.releasePointerCapture(t.pointerId),this.handlers.dragEnd(t.id,e)}};var Y=(n,e)=>`<span class="pill pill-${n}">${e}</span>`,fe=(n,e,t)=>`<button type="button" class="evref" data-ev="${t}"><span class="evtag">${I(se(n,t))}</span> <span class="evlbl">${J(n,e,t)}</span></button>`,jt=(n,e)=>`<span class="relchip" style="--c: var(--rel-${n})">${I(n)}${e?'<span class="issue-mark">issue</span>':""}</span>`;function st(n,e,t){return`<ol class="steps">${t.map((s,o)=>`<li data-from="${s.from}" data-to="${s.to}"><span class="stepnum">${o+1}</span>${fe(n,e,s.from)}${jt(s.rel,s.layer==="ib")}${fe(n,e,s.to)}</li>`).join("")}</ol>`}function _t(n,e){return`<div class="final"><span class="final-title">Final memory</span>${n.nodes.map(r=>{let s=n.locations.filter(i=>i.node===r&&!i.hidden);if(s.length===0)return"";let o=s.map(i=>`<span class="kv">${I(i.name)}&nbsp;=&nbsp;${e.final[i.id]??"?"}</span>`).join("");return`<span class="final-node"><span class="final-label">node ${r}</span>${o}</span>`}).join("")}</div>`}function it(n,e,t){let r,s;if(e.unknown.length>0?(r=Y("warn","Not an execution"),s=`<p>In this order the values of ${e.unknown.map(o=>fe(n,t,o)).join(", ")} depend on themselves, so they can't be computed. Usually a write sits above the read that it copies its value from.</p>`):e.assumeFailures.length>0?(r=Y("warn","Not an execution"),s=e.assumeFailures.map(o=>{let i=n.events[o],a=n.threads[i.thread];return`<p><code>${I(a.instrs[i.instr].text)}</code> in ${I(a.name)} reads ${t.readVal[o]??"?"}, so this order is not an execution of the program. Move the read below a write of the value it expects.</p>`}).join("")):!e.obAcyclic||!e.ibAcyclic?(r=Y("bad","Forbidden under RDMA<sub>SC</sub>"),s=`<p>The observed-before relation ob has a cycle, so no run of the hardware produces this execution.</p>${st(n,t,e.obCycle??[])}`,e.obCycle?.some(o=>o.layer==="ib")&&(s+='<p class="footnote">Steps marked <em>issue</em> compare issue times. They count towards ob because the run of issue steps starts at an instantaneous event, whose issue and observation coincide ([Inst];ib \u2286 ob).</p>')):e.scAcyclic?(r=Y("ok","Allowed under RDMA<sub>SC</sub>")+Y("neutral","SC execution"),s="<p>ob is acyclic, and so is sc = (po \u222A rf \u222A rb \u222A mo)\u207A. Sequential consistency allows this execution too.</p>"):(r=Y("ok","Allowed under RDMA<sub>SC</sub>")+Y("warn","Not SC"),s=`<p>ob is acyclic, but sc = (po \u222A rf \u222A rb \u222A mo)\u207A has a cycle. This is a weak behaviour, so the program is not robust.</p>${st(n,t,e.scCycle??[])}`),e.allowed&&e.upward.length>0){let o=e.upward.length;s+=`<div class="upward"><p>${o===1?"One ob edge goes":`${o} ob edges go`} backwards in the observation order, so the order is not a valid one. The execution is still allowed. Tidy order moves events into a valid order without changing rf, mo or nfo.</p><button type="button" class="btn small" data-action="tidy">Tidy order</button></div>`}return`<div class="verdict-head">${r}</div>${s}${_t(n,e)}`}function at(n){return ue.map(e=>{let t=te[e],r=e==="cycle"?"var(--bad)":`var(--rel-${e})`;return`<label class="toggle" for="show-${e}"><input type="checkbox" id="show-${e}" data-show="${e}"${n[e]?" checked":""}><span class="swatch ${t.style}" style="--c: ${r}"></span><span class="tname">${e}</span><span class="tdesc">${I(t.desc)}</span></label>`}).join("")}var ot=(n,e)=>`<span class="mt">${I(n.events[e].tag)}</span><span class="mk">${n.events[e].kind}</span>`;function lt(n){let e=n.threads.filter(t=>t.events.length>=2).map(t=>{let r=t.events,s=r.slice(1).map(i=>`<th scope="col">${ot(n,i)}</th>`).join(""),o=r.slice(0,-1).map((i,a)=>{let l=r.slice(1).map((f,m)=>{if(m+1<=a)return'<td class="na"></td>';let g=re(n.events[i],n.events[f]),c=g==="both"?"\u2713":g==="ippo"?"i":"\xB7";return`<td class="${g}" data-a="${i}" data-b="${f}" title="${I(tt(n,i,f))}">${c}</td>`}).join("");return`<tr><th scope="row">${ot(n,i)}</th>${l}</tr>`}).join("");return`<div class="matrix"><div class="matrix-title">${I(t.name)} <span class="muted">on node ${t.node}</span></div><div class="matrix-scroll"><table class="ppo"><thead><tr><th></th>${s}</tr></thead><tbody>${o}</tbody></table></div></div>`});return e.length===0?'<p class="muted">Every thread has fewer than two events, so there is nothing to order.</p>':`<p class="muted small">Rows are the earlier event in program order, columns the later one. Hover a cell for the reason.</p><div class="matrices">${e.join("")}</div><p class="legend-line"><span class="lg both">\u2713</span> kept when issuing and observing (ippo and oppo) <span class="lg ippo">i</span> kept when issuing only (ippo) <span class="lg none">\xB7</span> may be reordered</p>`}function ct(n,e,t,r,s,o){if(o===null)return'<p class="muted">Click an event in the trace to see what it does and how it relates to other events.</p>';let i=n.events[o],a=(v,R)=>`<dt>${v}</dt><dd>${R}</dd>`,l=v=>v.map(R=>fe(n,r,R)).join(" "),f=[];if(i.thread<0){let v=n.locations[i.loc];f.push(a("What",`Initial value of ${I(v.name)} on node ${v.node}.`))}else{let v=n.threads[i.thread];f.push(a("Where",`${I(v.name)} on node ${v.node}, statement ${i.instr+1}: <code>${I(v.instrs[i.instr].text)}</code>`)),f.push(a("What",I(et(r,i)))),f.push(a("Timing",e.inst[o]?"Instantaneous: issued and observed at the same moment.":"Buffered write: issued first, observed in memory later.")),i.rnode>=0&&f.push(a("Queue pair",`${I(v.name)} \u2192 node ${i.rnode}`)),f.push(a("Observed",`step ${s.pos[o]-n.nInit+1} of ${s.order.length-n.nInit}`))}let m=i.loc>=0?r.mo[i.loc]:[],g=m.indexOf(o),u=[["rf",t.rf.predecessors(o),t.rf.successors(o)],["mo",g>0?[m[g-1]]:[],g>=0&&g+1<m.length?[m[g+1]]:[]],["rb",t.rb.predecessors(o),t.rb.successors(o)],["pf",e.pf.predecessors(o),e.pf.successors(o)],["nfo",t.nfo.predecessors(o),t.nfo.successors(o)]].filter(([,v,R])=>v.length+R.length>0).map(([v,R,M])=>`<tr><th scope="row"><span class="relchip" style="--c: var(--rel-${v})">${v}</span></th><td>${R.length?l(R):'<span class="muted">none</span>'}</td><td>${M.length?l(M):'<span class="muted">none</span>'}</td></tr>`).join(""),x=v=>v.filter(R=>R>=n.nInit).length,y=`ob: after ${x(t.ob.predecessors(o))} and before ${x(t.ob.successors(o))} other events \xB7 ib: after ${x(t.ib.predecessors(o))}, before ${x(t.ib.successors(o))}`;return`<div class="big">${J(n,r,o)}</div><dl>${f.join("")}</dl>`+(u?`<table class="rels"><thead><tr><th></th><th>from</th><th>to</th></tr></thead><tbody>${u}</tbody></table>`:"")+`<p class="muted small">${y}</p>`}function dt(n,e,t){if(!n)return'<p class="muted">List every final state the program can reach under RDMA<sub>SC</sub>. Click one to load an order that produces it.</p>';if(n.outcomes.length===0)return"<p>No allowed execution: every order breaks a consistency rule or an assume.</p>";let r=n.outcomes.map((i,a)=>{let l=i.executions.length,f=t.get(i.key),m=l>1?`<span class="ocount">${f===void 0?`${l} executions`:`${f+1} of ${l}`}</span>`:"",g=(i.scCount>0?Y("neutral","SC"):"")+(i.weakCount>0?Y("warn",i.scCount>0?"also weak":"weak only"):"");return`<li><button type="button" class="outcome${i.key===e?" current":""}" data-outcome="${a}"><span class="okey">${I(i.key)}</span><span class="ometa">${g}${m}</span></button></li>`}).join(""),s=`${n.outcomes.length} ${n.outcomes.length===1?"outcome":"outcomes"} from ${n.executions.length} allowed ${n.executions.length===1?"execution":"executions"}.`,o=n.truncated?" <strong>The search stopped early, so the list may be incomplete.</strong>":"";return`<p class="muted small">${s}${o} Any other final state is forbidden.</p><ul class="outcomes">${r}</ul>`}var Me=212,Pe=88,ut=36,We=44,pt=30,ge=10,Oe=26,Ae=24,Ie=6,He=34,Vt=60,Yt=64,Bt="http://www.w3.org/2000/svg",qt=["po","rf","mo","rb","pf","nfo","ippo","oppo","ib","ob","sc"];function Gt(n){let e=[],t=[],r=new Map,s=Vt;for(let m of n.nodes){let g=n.threads.filter(x=>x.node===m).map(x=>x.index),c=n.locations.some(x=>x.node===m&&!x.hidden);if(g.length===0&&!c)continue;let u=s;(g.length>0?g:[-1]).forEach((x,y)=>{y>0&&(s+=Pe),x>=0&&r.set(x,e.length),e.push({node:m,thread:x,x:s}),s+=Me}),t.push({node:m,x:u,w:s-u}),s+=Pe+ut}let o=s-Pe-ut+Yt,i=new Map,a=0;for(let m of t){let g=n.locations.filter(x=>x.node===m.node&&!x.hidden),c=m.x,u=0;for(let x of g){let y=Math.min(160,Math.max(54,18+7.4*`${x.name} = ${x.init}`.length));c>m.x&&c+y>m.x+m.w&&(u++,c=m.x),i.set(x.id,{x:c,y:ge+Oe+u*(Ae+Ie),w:y,h:Ae}),c+=y+Ie}g.length>0&&(a=Math.max(a,u+1))}let l=ge+Oe+a*(Ae+Ie)+He,f=Math.max(1,...n.threads.map(m=>m.events.length));return{cols:e,colOfThread:r,groups:t,initRect:i,headerH:l,width:o,height:l+f*We+14,rows:f}}var Xt=()=>`<defs>${qt.map(n=>`<marker id="ah-${n}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,1.5 L10,5 L0,8.5 z" style="fill: var(--rel-${n})"/></marker><marker id="ahc-${n}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,1 L10,5 L0,9 z" style="fill: var(--rel-${n})"/></marker>`).join("")}</defs>`,_=n=>Math.round(n*10)/10,ye=class{constructor(e,t){S(this,"root");S(this,"handlers");S(this,"p",null);S(this,"layout",null);S(this,"svg",null);S(this,"boxes",new Map);S(this,"initBoxes",new Map);S(this,"labelCache",new Map);S(this,"frame",null);this.root=e,this.handlers=t}setProgram(e){this.p=e,this.frame=null;let t=this.layout=Gt(e);this.root.textContent="",this.boxes.clear(),this.initBoxes.clear(),this.labelCache.clear(),this.root.style.width=`${t.width}px`,this.root.style.height=`${t.height}px`;for(let s of t.groups){let o=j("node-label",`node ${s.node}`);o.style.left=`${s.x}px`,o.style.top=`${ge}px`;let i=j("node-rule");be(i,s.x,ge+Oe-6,s.w,0),this.root.append(o,i)}for(let s of t.cols){let o=j(s.thread<0?"thread-label memory":"thread-label",s.thread<0?"memory only":e.threads[s.thread].name);be(o,s.x,t.headerH-He,Me,He-6),this.root.append(o)}let r=document.createElementNS(Bt,"svg");r.classList.add("edges"),r.setAttribute("width",String(t.width)),r.setAttribute("height",String(t.height)),r.setAttribute("aria-hidden","true"),this.root.append(r),this.svg=r;for(let[s,o]of t.initRect){let i=e.locations[s],a=j("init",`${i.name} = ${i.init}`);a.title=`Initial write lW(${i.name}, ${i.init}) on node ${i.node}`,be(a,o.x,o.y,o.w,o.h),this.root.append(a),this.initBoxes.set(s,a)}for(let s of e.threads)for(let o of s.events)this.root.append(this.makeBox(o))}render(e){let t=this.p;if(!t||!this.layout)return;this.frame=e;let r=new Set;for(let s of e.cycle)r.add(s.from),r.add(s.to);for(let[s,o]of this.boxes){let i=t.events[s],a=e.ord.pos[s]-t.nInit+1,l=`<span class="qp-dot"></span><span class="time" title="Observed at step ${a} of the order">e${a}</span><span class="tag">${I(i.tag)}</span><span class="lbl">${J(t,e.witness,s)}</span>`;this.labelCache.get(s)!==l&&(o.innerHTML=l,this.labelCache.set(s,l)),o.classList.toggle("selected",e.selected===s),o.classList.toggle("flag",e.flagged.has(s)),o.classList.toggle("in-cycle",r.has(s)),o.classList.toggle("hovered",e.hover.includes(s)),o.setAttribute("aria-label",`${ee(t,e.witness,s)}, thread ${t.threads[i.thread].name}, statement ${i.tag}, observed at step ${a}`)}for(let[s,o]of this.initBoxes)o.classList.toggle("in-cycle",r.has(s)),o.classList.toggle("hovered",e.hover.includes(s));this.drawEdges()}focusEvent(e){this.boxes.get(e)?.scrollIntoView({block:"nearest",inline:"nearest"})}makeBox(e){let t=this.p,r=t.events[e],s=r.kind!=="lR"&&r.kind!=="lW"&&r.kind!=="CAS"&&r.kind!=="poll",o=j(`ev ${s?"nic":"cpu"}${r.kind==="nlW"||r.kind==="nrW"?" buffered":""}`);o.tabIndex=0,o.setAttribute("role","button"),o.dataset.id=String(e);let i=this.rectOf(e);return be(o,i.x,i.y,i.w,i.h),r.rnode>=0&&o.style.setProperty("--qp",`var(--qp-${(r.rnode-1)%6})`),o.title=`${t.threads[r.thread].name} \xB7 ${t.threads[r.thread].instrs[r.instr].text}`,o.addEventListener("click",()=>this.handlers.select(e)),o.addEventListener("keydown",a=>{(a.key==="Enter"||a.key===" ")&&(a.preventDefault(),this.handlers.select(e))}),o.addEventListener("pointerenter",()=>this.handlers.hover([e])),o.addEventListener("pointerleave",()=>this.handlers.hover([])),this.boxes.set(e,o),o}rectOf(e){let t=this.p,r=this.layout;if(e<t.nInit)return r.initRect.get(e)??null;let s=t.events[e];return{x:r.cols[r.colOfThread.get(s.thread)].x,y:r.headerH+(s.iota-1)*We+(We-pt)/2,w:Me,h:pt}}colOf(e){return e<this.p.nInit?-1:this.layout.colOfThread.get(this.p.events[e].thread)}drawEdges(){let e=this.frame,t=this.p,r=this.svg;if(!e||!t||!r)return;let s=new Set(e.cycle.map(c=>`${c.from}>${c.to}>${c.rel}`)),o=[...e.edges.filter(c=>!s.has(`${c.from}>${c.to}>${c.rel}`)).map(c=>({e:c,cyc:!1})),...e.cycle.map(c=>({e:c,cyc:!0}))],i=c=>{let u=c.from>=t.nInit&&this.colOf(c.from)===this.colOf(c.to);return`${Math.min(c.from,c.to)}-${Math.max(c.from,c.to)}-${u?te[c.rel].side:"x"}`},a=new Map;for(let{e:c}of o)a.set(i(c),(a.get(i(c))??0)+1);let l=new Map,f=e.hover.length>0,m=Xt(),g="";for(let{e:c,cyc:u}of o){let x=i(c),y=l.get(x)??0;l.set(x,y+1);let v=this.geometry(c,y,a.get(x));if(!v)continue;let R=f&&(e.hover.includes(c.from)||e.hover.includes(c.to)),M=`${u?"cyc":"e"} ${te[c.rel].style}${c.issue?" issue":""}${R?" hl":""}`;m+=`<path class="${M}" d="${v.d}" style="stroke: var(--rel-${c.rel})" marker-end="url(#${u?"ahc":"ah"}-${c.rel})"/>`;let O=`${c.rel}${c.issue?" (issue order)":""}: ${ee(t,e.witness,c.from)} \u2192 ${ee(t,e.witness,c.to)}`;m+=`<path class="hit" d="${v.d}"><title>${I(O)}</title></path>`,u&&c.step!==void 0&&(g+=`<g class="badge${R?" hl":""}" transform="translate(${_(v.mx)},${_(v.my)})"><circle r="7.5" style="stroke: var(--rel-${c.rel})"/><text text-anchor="middle" dy="3.3">${c.step}</text></g>`)}r.classList.toggle("dim",f),r.innerHTML=m+g}geometry(e,t,r){let s=this.p,o=this.rectOf(e.from),i=this.rectOf(e.to);if(!o||!i)return null;let a=t-(r-1)/2,l=(v,R,M,O,D,d,k,$)=>({d:`M${_(v)},${_(R)} C${_(M)},${_(O)} ${_(D)},${_(d)} ${_(k)},${_($)}`,mx:(v+3*M+3*D+k)/8,my:(R+3*O+3*d+$)/8});if(e.from<s.nInit){let v=o.x+o.w/2+a*6,R=o.y+o.h,M=i.y+i.h/2+a*4,O=v<=i.x+i.w/2,D=O?i.x:i.x+i.w;return l(v,R,v,R+Math.max(26,(M-R)*.45),D+(O?-46:46),M,D,M)}if(this.colOf(e.from)===this.colOf(e.to)){let v=te[e.rel].side==="L",R=v?o.x:o.x+o.w,M=v?-1:1,O=o.y+o.h/2+a*3,D=i.y+i.h/2+a*3,d=16+Math.min(Math.abs(D-O)*.14,30)+t*9,k=R+M*d;return l(R,O,k,O,k,D,R,D)}let f=o.x<i.x,m=f?o.x+o.w:o.x,g=f?i.x:i.x+i.w,c=o.y+o.h/2,u=i.y+i.h/2,x=g-m,y=a*12;return l(m,c,m+x*.42,c+y,g-x*.42,u+y,g,u)}};function be(n,e,t,r,s){n.style.left=`${e}px`,n.style.top=`${t}px`,n.style.width=`${r}px`,n.style.height=`${s}px`}var ft="rdma-sc-trace-explorer",F=n=>{let e=document.getElementById(n);if(!e)throw new Error(`Missing #${n}`);return e},L={preset:F("preset"),presetNote:F("preset-note"),source:F("source"),programMsg:F("program-msg"),toggles:F("toggles"),verdict:F("verdict"),trace:F("trace"),order:F("order"),traceEmpty:F("trace-empty"),undo:F("undo"),redo:F("redo"),reset:F("reset"),tidy:F("tidy"),matrices:F("matrices"),inspector:F("inspector"),enumerate:F("enumerate"),outcomes:F("outcomes")},b={loaded:null,error:null,presetId:Ee.id,tau:[],undo:[],redo:[],dragOrigin:null,show:{...nt},selected:null,hover:[],outcomes:null,cursor:new Map};function Jt(){try{let n=localStorage.getItem(ft);return n?JSON.parse(n):{}}catch{return{}}}function Fe(){try{let n={source:L.source.value,presetId:b.presetId,show:b.show};localStorage.setItem(ft,JSON.stringify(n))}catch{}}function bt(n,e,t){let{witness:r,ord:s}=Be(n,e,t);return{p:n,st:e,witness:r,ord:s,analysis:le(n,e,r,s)}}function Qt(n,e){if(!e)return null;let t=[];for(let r of e){let[s,o]=r.split("."),a=n.threads.find(l=>l.name===s)?.events.find(l=>n.events[l].tag===o);if(a===void 0)return null;t.push(a)}return t.length===n.events.length-n.nInit&&new Set(t).size===t.length?t:null}function ze(n,e){let t;try{t=Ze(n)}catch(s){if(!(s instanceof H))throw s;b.error=s,oe.setProgram(null),oe.refresh(),Ke();return}oe.setProgram(t),oe.refresh();let r=Ve(t);b.error=null,b.tau=Qt(t,e)??r.defaultTau.slice(),b.undo=[],b.redo=[],b.dragOrigin=null,b.selected=null,b.hover=[],b.outcomes=null,b.cursor.clear(),b.loaded=bt(t,r,b.tau),ve.setProgram(t),Ue.setProgram(t),kt()}function B(n,e){let t=b.loaded;t&&(e&&n.join()!==b.tau.join()&&(b.undo.push(b.tau),b.redo=[]),b.tau=n,b.loaded=bt(t.p,t.st,n),wt())}function gt(){let n=b.undo.pop();n&&(b.redo.push(b.tau),B(n,!1))}function Ne(){let n=b.redo.pop();n&&(b.undo.push(b.tau),B(n,!1))}function yt(){let n=b.loaded;if(!n||!n.analysis.allowed)return;let e=ce(n.p,n.analysis.ob,t=>n.ord.pos[t]);e&&B(e,!0)}var ve=new ye(L.trace,{select:n=>xe(b.selected===n?null:n),hover:n=>Z(n)});function mt(n){L.verdict.style.height=n?`${L.verdict.offsetHeight}px`:"",L.verdict.classList.toggle("frozen",n)}var Ue=new he(L.order,{dragStart:()=>{b.dragOrigin=b.tau.slice(),mt(!0)},dragTo:(n,e)=>{b.dragOrigin&&B($e(b.dragOrigin,n,e),!1)},dragEnd:(n,e)=>{let t=b.dragOrigin;if(b.dragOrigin=null,mt(!1),!!t){if(!e){B(t,!1);return}t.join()!==b.tau.join()&&(b.undo.push(t),b.redo=[]),B(b.tau,!1)}},select:n=>xe(b.selected===n?null:n),nudge:(n,e)=>{let t=b.tau.indexOf(n)+e;t<0||t>=b.tau.length||(B($e(b.tau,n,t),!0),Ue.focusEvent(n))},hover:n=>Z(n)}),oe=new me(F("code"),L.source,{hover:n=>Z(n),select:n=>{xe(n),ve.focusEvent(n)}});function xe(n){b.selected=n,vt(),we()}function Z(n){n.join()!==b.hover.join()&&(b.hover=n,we())}function Ke(){let n=[],e=b.error;if(e){let r=b.loaded?'<span class="stale">The trace still shows the last program that compiled.</span>':"";n.push(`<div class="error" role="alert"><strong>Line ${e.line}, column ${e.col}.</strong> ${I(e.message)}${r}</div>`)}for(let r of b.loaded?.p.notes??[])n.push(`<div class="info">${I(r)}</div>`);L.programMsg.innerHTML=n.join("");let t=X.find(r=>r.id===b.presetId);L.preset.value=t?t.id:"",L.presetNote.hidden=!t,L.presetNote.textContent=t?t.note:""}function we(){let n=b.loaded;if(!n)return;let{edges:e,cycle:t}=rt(n.p,n.st,n.analysis,n.witness,b.show),r=new Set([...n.analysis.unknown,...n.analysis.assumeFailures]);ve.render({witness:n.witness,ord:n.ord,edges:e,cycle:t,selected:b.selected,hover:b.hover,flagged:r});let s=new Set(t.flatMap(o=>[o.from,o.to]));Ue.render({tau:b.tau,witness:n.witness,selected:b.selected,hover:b.hover,flagged:r,inCycle:s}),oe.setActive(b.hover.length>0?b.hover:b.selected!==null?[b.selected]:[])}function vt(){let n=b.loaded;n&&(L.inspector.innerHTML=ct(n.p,n.st,n.analysis,n.witness,n.ord,b.selected))}function xt(){let n=b.loaded,e=n&&n.analysis.allowed?Se(n.p,n.analysis.final):null;L.outcomes.innerHTML=dt(b.outcomes,e,b.cursor),L.enumerate.disabled=!n}function Zt(){let n=b.loaded;L.undo.disabled=b.undo.length===0,L.redo.disabled=b.redo.length===0,L.reset.disabled=!n||b.tau.join()===n.st.defaultTau.join(),L.tidy.disabled=!n||!n.analysis.allowed||n.analysis.upward.length===0}function wt(){let n=b.loaded;n&&(L.verdict.innerHTML=it(n.p,n.analysis,n.witness),we(),vt(),Zt(),xt())}function kt(){Ke(),L.traceEmpty.hidden=b.loaded!==null,L.matrices.innerHTML=b.loaded?lt(b.loaded.p):"",wt()}function en(){let n=new Map;for(let t of X)n.set(t.group,[...n.get(t.group)??[],t]);let e='<option value="">Your program</option>';for(let[t,r]of n)e+=`<optgroup label="${I(t)}">${r.map(s=>`<option value="${s.id}">${I(s.title)}</option>`).join("")}</optgroup>`;L.preset.innerHTML=e}L.preset.addEventListener("change",()=>{let n=X.find(e=>e.id===L.preset.value);if(!n){b.presetId="",Ke();return}b.presetId=n.id,L.source.value=n.source,ze(n.source,n.schedule),Fe()});var ht;L.source.addEventListener("input",()=>{clearTimeout(ht),ht=setTimeout(()=>{let n=L.source.value;b.presetId=X.find(e=>e.source===n)?.id??"",ze(n),Fe()},300)});L.toggles.addEventListener("change",n=>{let e=n.target,t=e.dataset.show;t&&(b.show[t]=e.checked,Fe(),we())});L.undo.addEventListener("click",gt);L.redo.addEventListener("click",Ne);L.reset.addEventListener("click",()=>{b.loaded&&B(b.loaded.st.defaultTau.slice(),!0)});L.tidy.addEventListener("click",yt);L.enumerate.addEventListener("click",()=>{let n=b.loaded;n&&(b.outcomes=Je(n.p,n.st),b.cursor.clear(),xt())});L.outcomes.addEventListener("click",n=>{let e=n.target.closest("[data-outcome]"),t=b.outcomes;if(!e||!t)return;let r=t.outcomes[Number(e.dataset.outcome)],s=((b.cursor.get(r.key)??-1)+1)%r.executions.length;b.cursor.set(r.key,s),B(r.executions[s].tau,!0)});for(let n of[L.verdict,L.inspector])n.addEventListener("click",e=>{let t=e.target;if(t.closest('[data-action="tidy"]')){yt();return}let r=t.closest("[data-ev]");if(!r)return;let s=Number(r.dataset.ev);xe(s),ve.focusEvent(s)});L.verdict.addEventListener("mouseover",n=>{let e=n.target.closest("li[data-from]");e&&Z([Number(e.dataset.from),Number(e.dataset.to)])});L.verdict.addEventListener("mouseleave",()=>Z([]));L.matrices.addEventListener("mouseover",n=>{let e=n.target.closest("td[data-a]");Z(e?[Number(e.dataset.a),Number(e.dataset.b)]:[])});L.matrices.addEventListener("mouseleave",()=>Z([]));document.addEventListener("keydown",n=>{if(n.target.closest("textarea, input, select"))return;let e=n.metaKey||n.ctrlKey,t=n.key.toLowerCase();e&&t==="z"?(n.preventDefault(),n.shiftKey?Ne():gt()):e&&t==="y"&&(n.preventDefault(),Ne())});en();var De=Jt();for(let n of ue)typeof De.show?.[n]=="boolean"&&(b.show[n]=De.show[n]);L.toggles.innerHTML=at(b.show);var je=De.source??Ee.source,$t=X.find(n=>n.source===je);b.presetId=$t?.id??"";L.source.value=je;ze(je,$t?.schedule);b.loaded||kt();})();
+
+</script>
+</body>
+</html>
